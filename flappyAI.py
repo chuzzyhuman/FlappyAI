@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 
 WIDTH, HEIGHT = 600, 600
 SCREEN_WIDTH = 1200
-FPS, GROUND_SPEED = 60, 7
+FPS, GROUND_SPEED = 60, 6
 PLAYER_SIZE, GROUND_SIZE = 40, 100
-PIPE_WIDTH, PIPE_EDGE, PIPE_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 75, 80
+PIPE_WIDTH, PIPE_EDGE, PIPE_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 80, 80
 EYES_OPEN = False
 SHOW_TEXT, GRAPH_LOG = True, True
 
@@ -14,13 +14,13 @@ BLACK, WHITE, RED, GREEN, BLUE = (0, 0, 0), (255, 255, 255), (255, 0, 0), (0, 25
 
 INPUTS, OUTPUTS = 5, 1
 NODE_ID, INNOVATION = INPUTS + OUTPUTS, 0
-POPULATION = 5000
+POPULATION = 3000
 
 c1, c2, c3 = 1, 1, 0.4
 MAX_WEIGHT, MAX_BIAS = 3, 3
 DELTA_THRESHOLD = 0.4
-DEL_NODE, ADD_NODE = 0.01, 0.1
-DEL_LINK, ADD_LINK = 0.02, 0.4
+DEL_NODE, ADD_NODE = 0.01, 0.05
+DEL_LINK, ADD_LINK = 0.02, 0.2
 MUTATE_PROB = 0.6
 ACTIVATION_MODE = 2
 ACTIVATION_THRESHOLD = [0, 0.5, 0, 0]
@@ -67,44 +67,43 @@ class Link:
 
 class Genome:
     def __init__(self):
-        self.nodes = [Node(i) for i in range(INPUTS + OUTPUTS)]
-        self.links = []
+        self.nodes = np.array([Node(i) for i in range(INPUTS + OUTPUTS)])
+        self.links = np.array([], dtype=object)
         self.fitness = 0
         self.avg_fitness = 0
         self.reload()
-        
+
     def clone(self):
         g = Genome()
-        g.nodes = [n.clone() for n in self.nodes]
-        g.links = [c.clone() for c in self.links]
+        g.nodes = np.array([n.clone() for n in self.nodes])
+        g.links = np.array([c.clone() for c in self.links])
         g.fitness = self.fitness
         g.avg_fitness = self.avg_fitness
         g.reload()
         return g
-    
+
     def reload(self):
-        """
-        for node in self.nodes[INPUTS + OUTPUTS:]:
-            in_cnt = len([link for link in self.links if link.in_id == node.id and link.enabled])
-            out_cnt = len([link for link in self.links if link.out_id == node.id and link.enabled])
-            if in_cnt == 0 or out_cnt == 0:
-                self.nodes = [n for n in self.nodes if n.id != node.id]
-                self.links = [link for link in self.links if link.in_id != node.id and link.out_id != node.id]
-        """
         self.id_to_index = {n.id: i for i, n in enumerate(self.nodes)}
-        self.layer = [0 for _ in range(INPUTS)] + [1 for _ in range(INPUTS, len(self.nodes))]
+        self.layer = np.zeros(len(self.nodes))
+        self.layer[:INPUTS] = 0
+        self.layer[INPUTS:] = 1
         self.order = []
-        links_copy = [link.clone() for link in self.links]
-        S = [n.id for n in self.nodes if len([link for link in links_copy if link.out_id == n.id]) == 0]
-        
-        while S:
-            n = S.pop()
+
+        links_copy = np.array([link.clone() for link in self.links])
+        S = np.array([n.id for n in self.nodes if not np.any([link.out_id == n.id for link in links_copy])])
+
+        while S.size > 0:
+            n = S[-1]
+            S = np.delete(S, -1)
             self.order.append(n)
-            for link in [link for link in links_copy if link.in_id == n]:
-                links_copy.remove(link)
-                if len([link for link in links_copy if link.out_id == link.in_id]) == 0:
-                    S.append(link.out_id)
-        
+            indices_to_remove = []
+            for i, link in enumerate(links_copy):
+                if link.in_id == n:
+                    indices_to_remove.append(i)
+                    if not np.any([l.out_id == link.in_id for l in links_copy if l != link]):
+                        S = np.append(S, link.out_id)
+            links_copy = np.delete(links_copy, indices_to_remove)
+
         queue = [[n.id, []] for n in self.nodes]
         while queue:
             first = queue.pop(0)
@@ -114,13 +113,17 @@ class Genome:
                     if link.out_id in prev:
                         link.enabled = False
                     else:
-                        self.layer[self.id_to_index[link.out_id]] = max(self.layer[self.id_to_index[link.out_id]], self.layer[self.id_to_index[n]] + 1)
+                        self.layer[self.id_to_index[link.out_id]] = max(
+                            self.layer[self.id_to_index[link.out_id]], 
+                            self.layer[self.id_to_index[n]] + 1
+                        )
                         queue.append([link.out_id, prev + [n]])
+
         for i in range(INPUTS, INPUTS + OUTPUTS):
-            self.layer[i] = max(self.layer[INPUTS+OUTPUTS:]) + 1 if self.layer[INPUTS+OUTPUTS:] else 1
-        self.max_layer = max(self.layer)
+            self.layer[i] = max(self.layer[INPUTS+OUTPUTS:]) + 1 if self.layer[INPUTS+OUTPUTS:].size > 0 else 1
+        self.max_layer = int(max(self.layer))
         self.layer_dict = {i: [n.id for n in self.nodes if self.layer[self.id_to_index[n.id]] == i] for i in range(self.max_layer + 1)}
-    
+
     def distance(self, other):
         excess, disjoint, weight, same = 0, 0, 0, 1
         i, j = 0, 0
@@ -136,51 +139,34 @@ class Genome:
             else:
                 disjoint += 1
                 j += 1
-        while i < len(self.links):
-            excess += 1
-            i += 1
-        while j < len(other.links):
-            excess += 1
-            j += 1
+        excess += len(self.links) - i + len(other.links) - j
         n = min(max(len(self.links), len(other.links), 1), 30)
         return (c1 * excess + c2 * disjoint) / n + c3 * weight / same
-    
+
     def feed_forward(self, inputs):
-        self.value = [0 for _ in range(len(self.nodes))]
-        for i in range(INPUTS):
-            self.value[i] = inputs[i]
+        self.value = np.zeros(len(self.nodes))
+        self.value[:INPUTS] = inputs
         for node in self.order:
-            self.value[self.id_to_index[node]] = squash(self.value[self.id_to_index[node]] + self.nodes[self.id_to_index[node]].bias, ACTIVATION_MODE)
+            idx = self.id_to_index[node]
+            self.value[idx] = squash(self.value[idx] + self.nodes[idx].bias, ACTIVATION_MODE)
             for link in self.links:
                 if link.in_id == node and link.enabled:
-                    self.value[self.id_to_index[link.out_id]] += self.value[self.id_to_index[node]] * link.weight
+                    self.value[self.id_to_index[link.out_id]] += self.value[idx] * link.weight
         return self.value[INPUTS:INPUTS+OUTPUTS]
-
-        """
-        self.value = [0 for _ in range(len(self.nodes))]
-        for i in range(INPUTS):
-            self.value[i] = inputs[i]
-        for i in range(self.max_layer + 1):
-            for node in self.layer_dict[i]:
-                self.value[self.id_to_index[node]] = squash(self.value[self.id_to_index[node]] + self.nodes[self.id_to_index[node]].bias, ACTIVATION_MODE)
-                for link in self.links:
-                    if link.in_id == node and link.enabled:
-                        self.value[self.id_to_index[link.out_id]] += self.value[self.id_to_index[node]] * link.weight
-        return self.value[INPUTS:INPUTS+OUTPUTS]
-        """
 
     def add_node(self, link):
         global NODE_ID, INNOVATION
         link.enabled = False
-        self.nodes.append(Node(NODE_ID))
-        self.links.append(Link(link.in_id, NODE_ID, 1, True, INNOVATION))
-        self.links.append(Link(NODE_ID, link.out_id, link.weight, True, INNOVATION + 1))
+        new_node = Node(NODE_ID)
+        self.nodes = np.append(self.nodes, new_node)
+        self.links = np.append(self.links, [Link(link.in_id, NODE_ID, 1, True, INNOVATION), 
+                                            Link(NODE_ID, link.out_id, link.weight, True, INNOVATION + 1)])
         INNOVATION += 2
         NODE_ID += 1
-    
+
     def add_link(self):
         global INNOVATION
-        in_node = np.random.choice([n.id for n in self.nodes[:INPUTS] + self.nodes[INPUTS + OUTPUTS:]])
+        in_node = np.random.choice([n.id for n in np.concatenate((self.nodes[:INPUTS], self.nodes[INPUTS + OUTPUTS:]))])
         out_node = np.random.choice([n.id for n in self.nodes[INPUTS:]])
         if self.layer[self.id_to_index[in_node]] > self.layer[self.id_to_index[out_node]]:
             in_node, out_node = out_node, in_node
@@ -191,47 +177,51 @@ class Genome:
                 link.enabled = True
                 link.weight = 0
                 return
-        self.links.append(Link(in_node, out_node, 0, True, INNOVATION))
+        self.links = np.append(self.links, Link(in_node, out_node, 0, True, INNOVATION))
         INNOVATION += 1
-        
+
     def delete_node(self):
         node = np.random.choice([n.id for n in self.nodes[INPUTS + OUTPUTS:]])
-        self.nodes = [n for n in self.nodes if n.id != node]
-        self.links = [link for link in self.links if link.in_id != node and link.out_id != node]
-        
+        self.nodes = self.nodes[self.nodes != node]
+        self.links = self.links[np.logical_not(np.isin([link.in_id for link in self.links], node)) & 
+                                np.logical_not(np.isin([link.out_id for link in self.links], node))]
+
     def delete_link(self):
-        link = np.random.choice(self.links)
-        link.enabled = False
-        
+        if len(self.links) > 0:
+            link = np.random.choice(self.links)
+            link.enabled = False
+
     def change_weight(self):
-        link = np.random.choice(self.links)
-        link.weight += np.random.randn()
-        link.weight = max(-MAX_WEIGHT, min(MAX_WEIGHT, link.weight))
-        
+        if len(self.links) > 0:
+            link = np.random.choice(self.links)
+            link.weight += np.random.randn()
+            link.weight = np.clip(link.weight, -MAX_WEIGHT, MAX_WEIGHT)
+
     def change_bias(self):
-        node = np.random.choice([n for n in self.nodes[INPUTS:]])
-        node.bias += np.random.randn()
-        node.bias = max(-MAX_BIAS, min(MAX_BIAS, node.bias))
-        
+        if len(self.nodes) > INPUTS:
+            node = np.random.choice(self.nodes[INPUTS:])
+            node.bias += np.random.randn()
+            node.bias = np.clip(node.bias, -MAX_BIAS, MAX_BIAS)
+
     def mutate_node(self):
         r = np.random.rand()
-        if r < DEL_NODE * (len(self.nodes) + 5) / 5 and len(self.nodes) > INPUTS + OUTPUTS:
+        if r < DEL_NODE and len(self.nodes) > INPUTS + OUTPUTS:
             self.delete_node()
-        elif r < DEL_NODE * (len(self.nodes) + 5) / 5 + ADD_NODE * 5 / (len(self.nodes) + 5) and len([link for link in self.links if link.enabled]) > 0:
+        elif r < DEL_NODE + ADD_NODE and len([link for link in self.links if link.enabled]) > 0:
             self.add_node(np.random.choice([link for link in self.links if link.enabled]))
         elif len(self.nodes) > INPUTS + OUTPUTS:
             self.change_bias()
-        
+
     def mutate_link(self):
         r = np.random.rand()
         len_links = len([link for link in self.links if link.enabled])
-        if r < DEL_LINK * (len_links + 10) / 10 and len(self.links) > 0:
+        if r < DEL_LINK and len(self.links) > 0:
             self.delete_link()
-        elif r < DEL_NODE * (len_links + 10) / 10 + ADD_LINK * 10 / (len_links + 10):
+        elif r < DEL_NODE + ADD_LINK:
             self.add_link()
         elif len(self.links) > 0:
             self.change_weight()
-        
+
     def mutate(self):
         r = np.random.rand()
         if r < MUTATE_PROB:
@@ -239,51 +229,53 @@ class Genome:
         else:
             self.mutate_node()
         self.reload()
-        
+
     def crossover(self, other):
         child = Genome()
-        child.nodes = []
+        child.nodes = np.array([])
         i, j = 0, 0
         while i < len(self.nodes) and j < len(other.nodes):
             if self.nodes[i].id == other.nodes[j].id:
-                child.nodes.append(self.nodes[i].clone())
+                child.nodes = np.append(child.nodes, self.nodes[i].clone())
                 i += 1
                 j += 1
             elif self.nodes[i].id < other.nodes[j].id:
-                child.nodes.append(self.nodes[i].clone())
+                child.nodes = np.append(child.nodes, self.nodes[i].clone())
                 i += 1
             else:
-                child.nodes.append(other.nodes[j].clone())
+                child.nodes = np.append(child.nodes, other.nodes[j].clone())
                 j += 1
         while i < len(self.nodes):
-            child.nodes.append(self.nodes[i].clone())
+            child.nodes = np.append(child.nodes, self.nodes[i].clone())
             i += 1
         while j < len(other.nodes):
-            child.nodes.append(other.nodes[j].clone())
+            child.nodes = np.append(child.nodes, other.nodes[j].clone())
             j += 1
+
         i, j = 0, 0
         while i < len(self.links) and j < len(other.links):
             if self.links[i].innov == other.links[j].innov:
                 if np.random.rand() < 0.5:
-                    child.links.append(self.links[i].clone())
+                    child.links = np.append(child.links, self.links[i].clone())
                 else:
-                    child.links.append(other.links[j].clone())
+                    child.links = np.append(child.links, other.links[j].clone())
                 i += 1
                 j += 1
             elif self.links[i].innov < other.links[j].innov:
-                if np.random.rand() < 0.8:
-                    child.links.append(self.links[i].clone())
+                if np.random.rand() < 0.9:
+                    child.links = np.append(child.links, self.links[i].clone())
                 i += 1
             else:
-                if np.random.rand() < 0.8:
-                    child.links.append(other.links[j].clone())
+                if np.random.rand() < 0.9:
+                    child.links = np.append(child.links, other.links[j].clone())
                 j += 1
         while i < len(self.links):
-            child.links.append(self.links[i].clone())
+            child.links = np.append(child.links, self.links[i].clone())
             i += 1
         while j < len(other.links):
-            child.links.append(other.links[j].clone())
+            child.links = np.append(child.links, other.links[j].clone())
             j += 1
+
         child.reload()
         return child
 
@@ -357,7 +349,7 @@ class Player:
 class Pipe:
     def __init__(self, x):
         self.x = x
-        self.y = np.random.randint(50, HEIGHT - GROUND_SIZE - 300)
+        self.y = np.random.uniform(50, HEIGHT - GROUND_SIZE - 300)
         self.width = PIPE_WIDTH
         self.height = PIPE_HEIGHT
         
@@ -416,7 +408,8 @@ def reproduce(population):
         elif i <= 15:
             n = 5
         s = species[i]
-        for j in range(min(len(s), 40+n)):
+        for _ in range(50+n):
+            j = min(int(abs(np.random.randn())*3), 10, len(s)-1)
             child = s[j].clone()
             child.mutate()
             if child.max_layer <= MAX_LAYER and max([len(l) for l in child.layer_dict.values()]) <= 5:
@@ -424,8 +417,8 @@ def reproduce(population):
                 new_population.append(child)
     for s in species:
         for i in range(min(len(s), 30)):
-            parent1 = np.random.choice(s[:len(s)//3+1])
-            parent2 = np.random.choice(s[:len(s)//3+1])
+            parent1 = np.random.choice(s[:min(len(s)//3+1, 10)])
+            parent2 = np.random.choice(s[:min(len(s)//3+1, 10)])
             child = parent1.crossover(parent2)
             if child.max_layer <= MAX_LAYER and max([len(l) for l in child.layer_dict.values()]) <= 5:
                 child.avg_fitness = max(parent1.avg_fitness, parent2.avg_fitness)
