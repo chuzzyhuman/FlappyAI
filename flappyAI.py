@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 
 WIDTH, HEIGHT = 600, 600
 SCREEN_WIDTH = 1200
-FPS, GROUND_SPEED = 60, 6
+FPS, GROUND_SPEED = 60, 7
 PLAYER_SIZE, GROUND_SIZE = 40, 100
-PIPE_WIDTH, PIPE_EDGE, PIPE_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 80, 80
+PIPE_WIDTH, PIPE_EDGE, PIPE_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 110, 75, 70
 EYES_OPEN = False
 SHOW_TEXT, GRAPH_LOG = True, True
 
@@ -19,8 +19,8 @@ POPULATION = 3000
 c1, c2, c3 = 1, 1, 0.4
 MAX_WEIGHT, MAX_BIAS = 3, 3
 DELTA_THRESHOLD = 0.4
-DEL_NODE, ADD_NODE = 0.01, 0.05
-DEL_LINK, ADD_LINK = 0.02, 0.2
+DEL_NODE, ADD_NODE = 0.01, 0.02
+DEL_LINK, ADD_LINK = 0.02, 0.05
 MUTATE_PROB = 0.6
 ACTIVATION_MODE = 2
 ACTIVATION_THRESHOLD = [0, 0.5, 0, 0]
@@ -349,7 +349,7 @@ class Player:
 class Pipe:
     def __init__(self, x):
         self.x = x
-        self.y = np.random.uniform(50, HEIGHT - GROUND_SIZE - 300)
+        self.y = np.random.uniform(30, HEIGHT - GROUND_SIZE - 300)
         self.width = PIPE_WIDTH
         self.height = PIPE_HEIGHT
         
@@ -358,7 +358,7 @@ class Pipe:
         
     def reset(self):
         self.x = WIDTH
-        self.y = np.random.randint(50, HEIGHT - GROUND_SIZE - 300)
+        self.y = np.random.randint(30, HEIGHT - GROUND_SIZE - 300)
         self.height = max(GAP_MIN, self.height - 5)
         
     def draw(self):
@@ -388,7 +388,6 @@ def speciate(population):
             else:
                 species.sort(key=lambda x: max([g.avg_fitness for g in x]), reverse=True)
                 species[-1].append(genome)
-    #species.sort(key=lambda x: sum(sorted([g.avg_fitness for g in x], reverse=True)[:5])/min(5, len(x)), reverse=True)
     species.sort(key=lambda x: max([g.avg_fitness for g in x]), reverse=True)
     for s in species:
         s.sort(key=lambda x: x.avg_fitness, reverse=True)
