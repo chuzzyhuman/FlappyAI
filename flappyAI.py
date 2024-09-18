@@ -6,24 +6,24 @@ WIDTH, HEIGHT = 600, 600
 SCREEN_WIDTH = 1200
 FPS, GROUND_SPEED = 60, 7
 PLAYER_SIZE, GROUND_SIZE = 40, 100
-PIPE_WIDTH, PIPE_EDGE, PIPE_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 110, 75, 70
+PIPE_WIDTH, PIPE_EDGE, PIPE_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 80, 70
 EYES_OPEN = False
 SHOW_TEXT, GRAPH_LOG = True, True
 
 BLACK, WHITE, RED, GREEN, BLUE = (0, 0, 0), (255, 255, 255), (255, 0, 0), (0, 255, 0), (0, 0, 255)
 
-INPUTS, OUTPUTS = 5, 1
+INPUTS, OUTPUTS = 4, 1
 NODE_ID, INNOVATION = INPUTS + OUTPUTS, 0
-POPULATION = 3000
+POPULATION = 5000
 
 c1, c2, c3 = 1, 1, 0.4
-MAX_WEIGHT, MAX_BIAS = 3, 3
+MAX_WEIGHT, MAX_BIAS = 5, 5
 DELTA_THRESHOLD = 0.4
-DEL_NODE, ADD_NODE = 0.01, 0.02
-DEL_LINK, ADD_LINK = 0.02, 0.05
-MUTATE_PROB = 0.6
+DEL_NODE, ADD_NODE = 0.01, 0.05
+DEL_LINK, ADD_LINK = 0.05, 0.15
+MUTATE_PROB = 0.7
 ACTIVATION_MODE = 2
-ACTIVATION_THRESHOLD = [0, 0.5, 0, 0]
+ACTIVATION_THRESHOLD = [0, 0.5, 0, 0.5]
 MAX_LAYER = 3
 
 pg.init()
@@ -42,7 +42,7 @@ def squash(x, n):
     if n == 3:
         return max(0, x)
     if n == 4:
-        return np.log(1+x)
+        return np.log10(1+x)
 
 class Node:
     def __init__(self, id, bias=0):
@@ -90,6 +90,9 @@ class Genome:
         self.order = []
 
         links_copy = np.array([link.clone() for link in self.links])
+        for node in self.nodes[INPUTS + OUTPUTS:]:
+            if not np.any([link.in_id == node.id for link in links_copy]) or not np.any([link.out_id == node.id for link in links_copy]):
+                self.nodes = self.nodes[self.nodes != node]
         S = np.array([n.id for n in self.nodes if not np.any([link.out_id == n.id for link in links_copy])])
 
         while S.size > 0:
@@ -159,8 +162,9 @@ class Genome:
         link.enabled = False
         new_node = Node(NODE_ID)
         self.nodes = np.append(self.nodes, new_node)
-        self.links = np.append(self.links, [Link(link.in_id, NODE_ID, 1, True, INNOVATION), 
-                                            Link(NODE_ID, link.out_id, link.weight, True, INNOVATION + 1)])
+        if ACTIVATION_MODE == 2:
+            self.links = np.append(self.links, [Link(link.in_id, NODE_ID, link.weight / MAX_BIAS, True, INNOVATION), 
+                                                Link(NODE_ID, link.out_id, MAX_BIAS, True, INNOVATION + 1)])
         INNOVATION += 2
         NODE_ID += 1
 
@@ -177,7 +181,7 @@ class Genome:
                 link.enabled = True
                 link.weight = 0
                 return
-        self.links = np.append(self.links, Link(in_node, out_node, 0, True, INNOVATION))
+        self.links = np.append(self.links, Link(in_node, out_node, np.random.uniform(-0.01, 0.01), True, INNOVATION))
         INNOVATION += 1
 
     def delete_node(self):
@@ -194,13 +198,13 @@ class Genome:
     def change_weight(self):
         if len(self.links) > 0:
             link = np.random.choice(self.links)
-            link.weight += np.random.randn()
+            link.weight += np.random.randn() / 10
             link.weight = np.clip(link.weight, -MAX_WEIGHT, MAX_WEIGHT)
 
     def change_bias(self):
         if len(self.nodes) > INPUTS:
             node = np.random.choice(self.nodes[INPUTS:])
-            node.bias += np.random.randn()
+            node.bias += np.random.randn() / 10
             node.bias = np.clip(node.bias, -MAX_BIAS, MAX_BIAS)
 
     def mutate_node(self):
@@ -309,8 +313,9 @@ class Player:
     def move(self, pipe):
         self.y += self.yspeed
         self.input = [(pipe.x - self.x - PLAYER_SIZE) / WIDTH,
-                      (pipe.y - self.y) / PLAYER_SIZE,
-                      (pipe.y + pipe.height - self.y - self.height) / PLAYER_SIZE, 
+                      #(pipe.y - self.y) / PLAYER_SIZE,
+                      #(pipe.y - self.y + pipe.height - self.height) / PLAYER_SIZE,
+                      (pipe.y - self.y + (pipe.height - self.height) / 2) / PLAYER_SIZE,
                       (HEIGHT - GROUND_SIZE - self.y) / HEIGHT, 
                       self.yspeed / 10]
         if self.yspeed < 15:
@@ -349,17 +354,12 @@ class Player:
 class Pipe:
     def __init__(self, x):
         self.x = x
-        self.y = np.random.uniform(30, HEIGHT - GROUND_SIZE - 300)
+        self.y = np.random.uniform(50, HEIGHT - GROUND_SIZE - 250)
         self.width = PIPE_WIDTH
         self.height = PIPE_HEIGHT
         
     def move(self):
         self.x -= GROUND_SPEED
-        
-    def reset(self):
-        self.x = WIDTH
-        self.y = np.random.randint(30, HEIGHT - GROUND_SIZE - 300)
-        self.height = max(GAP_MIN, self.height - 5)
         
     def draw(self):
         draw_pipe(self)
@@ -401,16 +401,17 @@ def reproduce(population):
     for i in range(len(species)//2+1):
         n = 0
         if i <= 5:
-            n = 20
+            n = 50
         elif i <= 10:
-            n = 10
+            n = 20
         elif i <= 15:
             n = 5
         s = species[i]
-        for _ in range(50+n):
+        for _ in range(300+n):
             j = min(int(abs(np.random.randn())*3), 10, len(s)-1)
             child = s[j].clone()
-            child.mutate()
+            for _ in range(3):
+                child.mutate()
             if child.max_layer <= MAX_LAYER and max([len(l) for l in child.layer_dict.values()]) <= 5:
                 child.avg_fitness = s[j].avg_fitness
                 new_population.append(child)
@@ -456,7 +457,7 @@ def draw_stats():
                 if link.in_id == node and link.enabled:
                     pos1 = (WIDTH + w + i*g1, h + best.layer_dict[i].index(node)*g2)
                     pos2 = (WIDTH + w + best.layer[best.id_to_index[link.out_id]]*g1, h + best.layer_dict[best.layer[best.id_to_index[link.out_id]]].index(link.out_id)*g2)
-                    pg.draw.line(screen, RED if link.weight > 0 else BLUE, pos1, pos2, abs(int(link.weight)*2) + 2)
+                    pg.draw.line(screen, RED if link.weight > 0 else BLUE, pos1, pos2, abs(int(link.weight)) + 2)
         for node in best.layer_dict[i]:
             b = int(255 * (best.value[best.id_to_index[node]] - min_value) / (max_value - min_value))
             b = max(0, min(255, b))
@@ -481,20 +482,20 @@ def draw_stats():
         screen.blit(text, (WIDTH + 30, 160))
     
     """
-    for i, node in enumerate(best.genome.nodes):
+    for i, node in enumerate(best.nodes):
         print(f"Node {i}: {node.id}, {node.bias}")
-    for i, link in enumerate(best.genome.links):
+    for i, link in enumerate(best.links):
         print(f"Link {i}: {link.in_id} -> {link.out_id}, {link.weight}, {link.enabled}, {link.innov}")
     print()
     """
     
-population = [Player() for _ in range(POPULATION)]
-dead_population = []
 species = []
+population = reproduce([Player() for _ in range(POPULATION)])
+dead_population = []
 pipes = [Pipe(WIDTH)]
 pipe_idx = 0
 
-time, gen, run, pause, speed_idx = 0, 1, True, False, 2
+time, pipe_time, gen, run, pause, speed_idx = 0, 0, 1, True, False, 2
 speed = [0.1, 1, 100]
 best_time = [0]
 best_avg_time = [0]
@@ -539,6 +540,7 @@ while run:
         continue
     
     time += 1
+    pipe_time += 1
     
     screen.fill(BLACK)
     for pipe in pipes:
@@ -561,10 +563,11 @@ while run:
         pipes.pop(pipe_idx)
     if pipes[pipe_idx].x + PIPE_WIDTH < 50:
         pipe_idx += 1
-    if time % PIPE_DIST == 0:
+    if pipe_time == PIPE_DIST:
         pipes.append(Pipe(WIDTH))
-        pipes[-1].height = max(pipes[-2].height - 3, GAP_MIN)
-        pipes[-1].y = np.random.randint(100, HEIGHT - GROUND_SIZE - 250)
+        pipes[-1].height = max(pipes[-2].height-1, GAP_MIN)
+        PIPE_DIST = np.random.randint(70, 80)
+        pipe_time = 0
     
     i = 0
     while i < len(population):
@@ -578,9 +581,16 @@ while run:
     pg.display.update()
     
     if len(population) == 0:
+        best = max(dead_population, key=lambda x: x.genome.fitness).genome
+        for i, node in enumerate(best.nodes):
+            print(f"Node {i}: {node.id}, {node.bias}")
+        for i, link in enumerate(best.links):
+            print(f"Link {i}: {link.in_id} -> {link.out_id}, {link.weight}, {link.enabled}, {link.innov}")
+        print()
         print([len(s) for s in species])
         print()
         time = 0
+        pipe_time = 0
         gen += 1
         for player in dead_population:
             player.genome.avg_fitness = (player.genome.avg_fitness*3 + player.genome.fitness)/4
@@ -593,6 +603,7 @@ while run:
             player.genome.reload()
         pipes = [Pipe(WIDTH)]
         pipe_idx = 0
+        
     
     if speed[speed_idx] != 100:
         clock.tick(FPS * speed[speed_idx])
