@@ -354,7 +354,7 @@ class Player:
 class Pipe:
     def __init__(self, x):
         self.x = x
-        self.y = np.random.uniform(50, HEIGHT - GROUND_SIZE - 250)
+        self.y = np.random.uniform(100, HEIGHT - GROUND_SIZE - 200)
         self.width = PIPE_WIDTH
         self.height = PIPE_HEIGHT
         
