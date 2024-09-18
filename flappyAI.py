@@ -19,11 +19,11 @@ POPULATION = 5000
 c1, c2, c3 = 1, 1, 0.4
 MAX_WEIGHT, MAX_BIAS = 5, 5
 DELTA_THRESHOLD = 0.4
-DEL_NODE, ADD_NODE = 0.01, 0.05
-DEL_LINK, ADD_LINK = 0.05, 0.15
-MUTATE_PROB = 0.7
+DEL_NODE, ADD_NODE = 0.02, 0.1
+DEL_LINK, ADD_LINK = 0.05, 0.2
+MUTATE_PROB = 0.6
 ACTIVATION_MODE = 2
-ACTIVATION_THRESHOLD = [0, 0.5, 0, 0.5]
+ACTIVATION_THRESHOLD = [0, 0.5, 0.5, 0.5]
 MAX_LAYER = 3
 
 pg.init()
@@ -83,17 +83,19 @@ class Genome:
         return g
 
     def reload(self):
+        for node in self.nodes[INPUTS + OUTPUTS:]:
+            if not np.any([link.in_id == node.id and link.enabled for link in self.links]) or not np.any([link.out_id == node.id and link.enabled for link in self.links]):
+                self.nodes = self.nodes[self.nodes != node]
+        self.links = np.array([link for link in self.links if link.in_id in [n.id for n in self.nodes] and link.out_id in [n.id for n in self.nodes]])
+        links_copy = np.array([link for link in self.links if link.enabled])
+        
         self.id_to_index = {n.id: i for i, n in enumerate(self.nodes)}
         self.layer = np.zeros(len(self.nodes))
         self.layer[:INPUTS] = 0
         self.layer[INPUTS:] = 1
         self.order = []
 
-        links_copy = np.array([link.clone() for link in self.links])
-        for node in self.nodes[INPUTS + OUTPUTS:]:
-            if not np.any([link.in_id == node.id for link in links_copy]) or not np.any([link.out_id == node.id for link in links_copy]):
-                self.nodes = self.nodes[self.nodes != node]
-        S = np.array([n.id for n in self.nodes if not np.any([link.out_id == n.id for link in links_copy])])
+        S = np.array([n.id for n in self.nodes[:INPUTS]])
 
         while S.size > 0:
             n = S[-1]
@@ -106,7 +108,7 @@ class Genome:
                     if not np.any([l.out_id == link.in_id for l in links_copy if l != link]):
                         S = np.append(S, link.out_id)
             links_copy = np.delete(links_copy, indices_to_remove)
-
+        
         queue = [[n.id, []] for n in self.nodes]
         while queue:
             first = queue.pop(0)
@@ -354,7 +356,7 @@ class Player:
 class Pipe:
     def __init__(self, x):
         self.x = x
-        self.y = np.random.uniform(100, HEIGHT - GROUND_SIZE - 200)
+        self.y = np.random.uniform(50, HEIGHT - GROUND_SIZE - 300)
         self.width = PIPE_WIDTH
         self.height = PIPE_HEIGHT
         
