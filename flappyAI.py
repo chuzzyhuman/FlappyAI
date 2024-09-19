@@ -14,7 +14,7 @@ BLACK, WHITE, RED, GREEN, BLUE = (0, 0, 0), (255, 255, 255), (255, 0, 0), (0, 25
 
 INPUTS, OUTPUTS = 4, 1
 NODE_ID, INNOVATION = INPUTS + OUTPUTS, 0
-POPULATION = 5000
+POPULATION = 500
 
 c1, c2, c3 = 1, 1, 0.4
 MAX_WEIGHT, MAX_BIAS = 5, 5
@@ -87,27 +87,12 @@ class Genome:
             if not np.any([link.in_id == node.id and link.enabled for link in self.links]) or not np.any([link.out_id == node.id and link.enabled for link in self.links]):
                 self.nodes = self.nodes[self.nodes != node]
         self.links = np.array([link for link in self.links if link.in_id in [n.id for n in self.nodes] and link.out_id in [n.id for n in self.nodes]])
-        links_copy = np.array([link for link in self.links if link.enabled])
         
         self.id_to_index = {n.id: i for i, n in enumerate(self.nodes)}
         self.layer = np.zeros(len(self.nodes))
         self.layer[:INPUTS] = 0
         self.layer[INPUTS:] = 1
         self.order = []
-
-        S = np.array([n.id for n in self.nodes[:INPUTS]])
-
-        while S.size > 0:
-            n = S[-1]
-            S = np.delete(S, -1)
-            self.order.append(n)
-            indices_to_remove = []
-            for i, link in enumerate(links_copy):
-                if link.in_id == n:
-                    indices_to_remove.append(i)
-                    if not np.any([l.out_id == link.in_id for l in links_copy if l != link]):
-                        S = np.append(S, link.out_id)
-            links_copy = np.delete(links_copy, indices_to_remove)
         
         queue = [[n.id, []] for n in self.nodes]
         while queue:
@@ -128,6 +113,9 @@ class Genome:
             self.layer[i] = max(self.layer[INPUTS+OUTPUTS:]) + 1 if self.layer[INPUTS+OUTPUTS:].size > 0 else 1
         self.max_layer = int(max(self.layer))
         self.layer_dict = {i: [n.id for n in self.nodes if self.layer[self.id_to_index[n.id]] == i] for i in range(self.max_layer + 1)}
+        
+        for i in range(self.max_layer + 1):
+            self.order += self.layer_dict[i]
 
     def distance(self, other):
         excess, disjoint, weight, same = 0, 0, 0, 1
@@ -151,6 +139,7 @@ class Genome:
     def feed_forward(self, inputs):
         self.value = np.zeros(len(self.nodes))
         self.value[:INPUTS] = inputs
+        print(self.order)
         for node in self.order:
             idx = self.id_to_index[node]
             self.value[idx] = squash(self.value[idx] + self.nodes[idx].bias, ACTIVATION_MODE)
@@ -356,7 +345,7 @@ class Player:
 class Pipe:
     def __init__(self, x):
         self.x = x
-        self.y = np.random.uniform(50, HEIGHT - GROUND_SIZE - 300)
+        self.y = np.random.uniform(50, HEIGHT - GROUND_SIZE - 250)
         self.width = PIPE_WIDTH
         self.height = PIPE_HEIGHT
         
@@ -400,7 +389,7 @@ def reproduce(population):
     population.sort(key=lambda x: x.genome.avg_fitness, reverse=True)
     species = speciate([player.genome for player in population])
     new_population = [population[i].genome for i in range(POPULATION//5)]
-    for i in range(len(species)//2+1):
+    for i in range(len(species)//3+1):
         n = 0
         if i <= 5:
             n = 50
@@ -409,7 +398,7 @@ def reproduce(population):
         elif i <= 15:
             n = 5
         s = species[i]
-        for _ in range(300+n):
+        for _ in range(POPULATION//20+n):
             j = min(int(abs(np.random.randn())*3), 10, len(s)-1)
             child = s[j].clone()
             for _ in range(3):
