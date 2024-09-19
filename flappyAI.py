@@ -14,7 +14,7 @@ BLACK, WHITE, RED, GREEN, BLUE = (0, 0, 0), (255, 255, 255), (255, 0, 0), (0, 25
 
 INPUTS, OUTPUTS = 4, 1
 NODE_ID, INNOVATION = INPUTS + OUTPUTS, 0
-POPULATION = 500
+POPULATION = 5000
 
 c1, c2, c3 = 1, 1, 0.4
 MAX_WEIGHT, MAX_BIAS = 5, 5
@@ -139,7 +139,6 @@ class Genome:
     def feed_forward(self, inputs):
         self.value = np.zeros(len(self.nodes))
         self.value[:INPUTS] = inputs
-        print(self.order)
         for node in self.order:
             idx = self.id_to_index[node]
             self.value[idx] = squash(self.value[idx] + self.nodes[idx].bias, ACTIVATION_MODE)
