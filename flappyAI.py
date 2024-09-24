@@ -6,7 +6,8 @@ WIDTH, HEIGHT = 600, 600
 SCREEN_WIDTH = 1200
 FPS, GROUND_SPEED = 60, 7
 PLAYER_SIZE, GROUND_SIZE = 40, 100
-PIPE_WIDTH, PIPE_EDGE, PIPE_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 80, 70
+PIPE_WIDTH, PIPE_EDGE, PIPE_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 75, 70
+HEIGHT_RANGE = (50, HEIGHT - GROUND_SIZE - 250)
 EYES_OPEN = False
 SHOW_TEXT, GRAPH_LOG = True, True
 
@@ -14,14 +15,14 @@ BLACK, WHITE, RED, GREEN, BLUE = (0, 0, 0), (255, 255, 255), (255, 0, 0), (0, 25
 
 INPUTS, OUTPUTS = 4, 1
 NODE_ID, INNOVATION = INPUTS + OUTPUTS, 0
-POPULATION = 5000
+POPULATION = 10000
 
 c1, c2, c3 = 1, 1, 0.4
 MAX_WEIGHT, MAX_BIAS = 5, 5
 DELTA_THRESHOLD = 0.4
-DEL_NODE, ADD_NODE = 0.02, 0.1
-DEL_LINK, ADD_LINK = 0.05, 0.2
-MUTATE_PROB = 0.6
+DEL_NODE, ADD_NODE = 0.02, 0.02
+DEL_LINK, ADD_LINK = 0.05, 0.3
+MUTATE_PROB = 0.7
 ACTIVATION_MODE = 2
 ACTIVATION_THRESHOLD = [0, 0.5, 0.5, 0.5]
 MAX_LAYER = 3
@@ -31,6 +32,16 @@ screen = pg.display.set_mode((SCREEN_WIDTH, HEIGHT))
 pg.display.set_caption("FlappyAI")
 font = pg.font.Font("font.ttf", 24)
 clock = pg.time.Clock()
+
+def pseudo_random(num, min_val, max_val):
+    a = 1664525
+    c = 1013904223
+    m = 2**32
+    
+    num = (a * num + c) % m
+    scaled_num = min_val + (num % (max_val - min_val + 1))
+    
+    return scaled_num
 
 def squash(x, n):
     if n == 0:
@@ -62,8 +73,8 @@ class Link:
         self.innov = innov
         
     def clone(self):
-        c = Link(self.in_id, self.out_id, self.weight, self.enabled, self.innov)
-        return c
+        l = Link(self.in_id, self.out_id, self.weight, self.enabled, self.innov)
+        return l
 
 class Genome:
     def __init__(self):
@@ -93,6 +104,7 @@ class Genome:
         self.layer[:INPUTS] = 0
         self.layer[INPUTS:] = 1
         self.order = []
+        self.list_order = []
         
         queue = [[n.id, []] for n in self.nodes]
         while queue:
@@ -117,6 +129,11 @@ class Genome:
         for i in range(self.max_layer + 1):
             self.order += self.layer_dict[i]
 
+        for n in self.order:
+            for link in self.links:
+                if link.in_id == n and link.enabled:
+                    self.list_order.append(link)
+
     def distance(self, other):
         excess, disjoint, weight, same = 0, 0, 0, 1
         i, j = 0, 0
@@ -139,12 +156,23 @@ class Genome:
     def feed_forward(self, inputs):
         self.value = np.zeros(len(self.nodes))
         self.value[:INPUTS] = inputs
+        cnt = 0
+        """
         for node in self.order:
             idx = self.id_to_index[node]
             self.value[idx] = squash(self.value[idx] + self.nodes[idx].bias, ACTIVATION_MODE)
-            for link in self.links:
-                if link.in_id == node and link.enabled:
-                    self.value[self.id_to_index[link.out_id]] += self.value[idx] * link.weight
+            while(cnt < len(self.list_order) and self.list_order[cnt].in_id == node):
+                link = self.list_order[cnt]
+                self.value[self.id_to_index[link.out_id]] += self.value[idx] * link.weight
+                cnt += 1
+        """
+        while(cnt < len(self.list_order)):
+            if cnt == 0 or self.list_order[cnt].in_id != self.list_order[cnt - 1].in_id:
+                idx = self.id_to_index[self.list_order[cnt].in_id]
+                self.value[idx] = squash(self.value[idx] + self.nodes[idx].bias, ACTIVATION_MODE)
+            link = self.list_order[cnt]
+            self.value[self.id_to_index[link.out_id]] += self.value[self.id_to_index[link.in_id]] * link.weight
+            cnt += 1
         return self.value[INPUTS:INPUTS+OUTPUTS]
 
     def add_node(self, link):
@@ -171,7 +199,7 @@ class Genome:
                 link.enabled = True
                 link.weight = 0
                 return
-        self.links = np.append(self.links, Link(in_node, out_node, np.random.uniform(-0.01, 0.01), True, INNOVATION))
+        self.links = np.append(self.links, Link(in_node, out_node, np.random.uniform(-0.001, 0.001), True, INNOVATION))
         INNOVATION += 1
 
     def delete_node(self):
@@ -305,7 +333,7 @@ class Player:
         self.input = [(pipe.x - self.x - PLAYER_SIZE) / WIDTH,
                       #(pipe.y - self.y) / PLAYER_SIZE,
                       #(pipe.y - self.y + pipe.height - self.height) / PLAYER_SIZE,
-                      (pipe.y - self.y + (pipe.height - self.height) / 2) / PLAYER_SIZE,
+                      (pipe.y - self.y + (pipe.height - self.height) / 2) / (PLAYER_SIZE*2),
                       (HEIGHT - GROUND_SIZE - self.y) / HEIGHT, 
                       self.yspeed / 10]
         if self.yspeed < 15:
@@ -344,7 +372,7 @@ class Player:
 class Pipe:
     def __init__(self, x):
         self.x = x
-        self.y = np.random.uniform(50, HEIGHT - GROUND_SIZE - 250)
+        self.y = 100
         self.width = PIPE_WIDTH
         self.height = PIPE_HEIGHT
         
@@ -387,8 +415,8 @@ def reproduce(population):
     global species
     population.sort(key=lambda x: x.genome.avg_fitness, reverse=True)
     species = speciate([player.genome for player in population])
-    new_population = [population[i].genome for i in range(POPULATION//5)]
-    for i in range(len(species)//3+1):
+    new_population = [population[i].genome for i in range(POPULATION//100)]
+    for i in range(len(species)//4+1):
         n = 0
         if i <= 5:
             n = 50
@@ -397,18 +425,18 @@ def reproduce(population):
         elif i <= 15:
             n = 5
         s = species[i]
-        for _ in range(POPULATION//20+n):
+        for _ in range(POPULATION//30+n):
             j = min(int(abs(np.random.randn())*3), 10, len(s)-1)
             child = s[j].clone()
-            for _ in range(3):
+            for _ in range(np.random.randint(5)):
                 child.mutate()
             if child.max_layer <= MAX_LAYER and max([len(l) for l in child.layer_dict.values()]) <= 5:
                 child.avg_fitness = s[j].avg_fitness
                 new_population.append(child)
     for s in species:
         for i in range(min(len(s), 30)):
-            parent1 = np.random.choice(s[:min(len(s)//3+1, 10)])
-            parent2 = np.random.choice(s[:min(len(s)//3+1, 10)])
+            parent1 = np.random.choice(s[:min(len(s)//4+1, 10)])
+            parent2 = np.random.choice(s[:min(len(s)//4+1, 10)])
             child = parent1.crossover(parent2)
             if child.max_layer <= MAX_LAYER and max([len(l) for l in child.layer_dict.values()]) <= 5:
                 child.avg_fitness = max(parent1.avg_fitness, parent2.avg_fitness)
@@ -556,7 +584,9 @@ while run:
     if pipe_time == PIPE_DIST:
         pipes.append(Pipe(WIDTH))
         pipes[-1].height = max(pipes[-2].height-1, GAP_MIN)
+        pipes[-1].y = pseudo_random(pipes[-2].y, HEIGHT_RANGE[0], HEIGHT_RANGE[1]) + np.random.randint(-5, 5)
         PIPE_DIST = np.random.randint(70, 80)
+        #PIPE_DIST = 70 + np.random.randint(-5, 5)
         pipe_time = 0
     
     i = 0
@@ -593,7 +623,17 @@ while run:
             player.genome.reload()
         pipes = [Pipe(WIDTH)]
         pipe_idx = 0
-        
+
+        node_ids = [n.id for n in best.nodes]
+        for i in range(1, 10000000):
+            if i not in node_ids:
+                NODE_ID = i
+                break
+        innovs = [l.innov for l in best.links]
+        for i in range(1, 10000000):
+            if i not in innovs:
+                INNOVATION = i
+                break
     
     if speed[speed_idx] != 100:
         clock.tick(FPS * speed[speed_idx])
