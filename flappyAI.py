@@ -12,10 +12,11 @@ EYES_OPEN = False
 SHOW_TEXT, GRAPH_LOG = True, True
 
 BLACK, WHITE, RED, GREEN, BLUE = (0, 0, 0), (255, 255, 255), (255, 0, 0), (0, 255, 0), (0, 0, 255)
+SPECIES_COLOR = [(i, 255, 0) for i in range(0, 256, 51)] + [(255, i, 0) for i in range(255, -1, -51)] + [(i, 0, 0) for i in range(255, -1, -51)] + [(0, 0, 0) for i in range(50)]
 
 INPUTS, OUTPUTS = 4, 1
 NODE_ID, INNOVATION = INPUTS + OUTPUTS, 0
-POPULATION = 10000
+POPULATION = 5000
 
 c1, c2, c3 = 1, 1, 0.4
 MAX_WEIGHT, MAX_BIAS = 5, 5
@@ -82,6 +83,7 @@ class Genome:
         self.links = np.array([], dtype=object)
         self.fitness = 0
         self.avg_fitness = 0
+        self.species = 0
         self.reload()
 
     def clone(self):
@@ -90,6 +92,7 @@ class Genome:
         g.links = np.array([c.clone() for c in self.links])
         g.fitness = self.fitness
         g.avg_fitness = self.avg_fitness
+        g.species = self.species
         g.reload()
         return g
 
@@ -355,7 +358,7 @@ class Player:
         
     def draw(self):
         pg.draw.rect(screen, WHITE, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
-        pg.draw.rect(screen, BLUE if self.dead else RED, (self.x, self.y, self.width, self.height))
+        pg.draw.rect(screen, BLUE if self.dead else SPECIES_COLOR[self.genome.species], (self.x, self.y, self.width, self.height))
         if EYES_OPEN:
             if self.dead:
                 pg.draw.line(screen, BLACK, (self.x + 15, self.y + 10), (self.x + 23, self.y + 18), 5)
@@ -388,10 +391,10 @@ def draw_pipe(pipe):
     pg.draw.rect(screen, WHITE, (pipe.x + edge - 2, pipe.y + pipe.height, pipe.width - edge*2 + 4, HEIGHT - (pipe.y + pipe.height) + 20))
     pg.draw.rect(screen, WHITE, (pipe.x - 2, pipe.y - 22, pipe.width + 4, 24))
     pg.draw.rect(screen, WHITE, (pipe.x - 2, pipe.y + pipe.height - 2, pipe.width + 4, 24))
-    pg.draw.rect(screen, (0, 150, 0), (pipe.x + edge, 0, pipe.width - edge*2, pipe.y - 20))
-    pg.draw.rect(screen, (0, 150, 0), (pipe.x + edge, pipe.y + pipe.height, pipe.width - edge*2, HEIGHT - (pipe.y + pipe.height) + 20))
-    pg.draw.rect(screen, (0, 150, 0), (pipe.x, pipe.y - 20, pipe.width, 20))
-    pg.draw.rect(screen, (0, 150, 0), (pipe.x, pipe.y + pipe.height, pipe.width, 20))
+    pg.draw.rect(screen, (100, 100, 100), (pipe.x + edge, 0, pipe.width - edge*2, pipe.y - 20))
+    pg.draw.rect(screen, (100, 100, 100), (pipe.x + edge, pipe.y + pipe.height, pipe.width - edge*2, HEIGHT - (pipe.y + pipe.height) + 20))
+    pg.draw.rect(screen, (100, 100, 100), (pipe.x, pipe.y - 20, pipe.width, 20))
+    pg.draw.rect(screen, (100, 100, 100), (pipe.x, pipe.y + pipe.height, pipe.width, 20))
 
 def speciate(population):
     species = []
@@ -409,6 +412,9 @@ def speciate(population):
     species.sort(key=lambda x: max([g.avg_fitness for g in x]), reverse=True)
     for s in species:
         s.sort(key=lambda x: x.avg_fitness, reverse=True)
+    for i, s in enumerate(species):
+        for g in s:
+            g.species = i
     return species
 
 def reproduce(population):
@@ -425,7 +431,7 @@ def reproduce(population):
         elif i <= 15:
             n = 5
         s = species[i]
-        for _ in range(POPULATION//30+n):
+        for _ in range(POPULATION//20+n):
             j = min(int(abs(np.random.randn())*3), 10, len(s)-1)
             child = s[j].clone()
             for _ in range(np.random.randint(5)):
@@ -573,7 +579,7 @@ while run:
         player.move(pipes[pipe_idx])
         player.draw()
     pg.draw.rect(screen, WHITE, (0, HEIGHT - GROUND_SIZE - 2, WIDTH, 100))
-    pg.draw.rect(screen, GREEN, (0, HEIGHT - GROUND_SIZE, WIDTH, 100))
+    pg.draw.rect(screen, (100, 100, 100), (0, HEIGHT - GROUND_SIZE, WIDTH, 100))
     pg.draw.rect(screen, BLACK, (WIDTH, 0, SCREEN_WIDTH - WIDTH, HEIGHT))
     pg.draw.rect(screen, WHITE, (WIDTH, 0, 3, HEIGHT))
     
@@ -624,12 +630,13 @@ while run:
         pipes = [Pipe(WIDTH)]
         pipe_idx = 0
 
-        node_ids = [n.id for n in best.nodes]
+        #node_ids is n.id of all the population
+        node_ids = [n.id for n in np.concatenate(([player.genome.nodes for player in population]))]
         for i in range(1, 10000000):
             if i not in node_ids:
                 NODE_ID = i
                 break
-        innovs = [l.innov for l in best.links]
+        innovs = [l.innov for l in np.concatenate(([player.genome.links for player in population]))]
         for i in range(1, 10000000):
             if i not in innovs:
                 INNOVATION = i
