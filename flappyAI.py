@@ -55,6 +55,12 @@ def squash(x, n):
         return max(0, x)
     if n == 4:
         return np.log10(1+x)
+    
+def log(x, n):
+    if n:
+        return np.log10(1+x)
+    return x
+
 
 class Node:
     def __init__(self, id, bias=0):
@@ -498,16 +504,16 @@ def draw_stats():
     if GRAPH_NUM == 0:
         max_time = max(best_time + best_avg_time)
         for i in range(len(best_time) - 1):
-            pg.draw.line(screen, RED, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_time) - 1), bottom - squash(best_time[i], GRAPH_LOG*4)*(bottom - top)/squash(max_time, GRAPH_LOG*4)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_time) - 1), bottom - squash(best_time[i + 1], GRAPH_LOG*4)*(bottom - top)/squash(max_time, GRAPH_LOG*4)), 5)
+            pg.draw.line(screen, RED, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_time) - 1), bottom - log(best_time[i], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_time) - 1), bottom - log(best_time[i + 1], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), 5)
         for i in range(len(best_avg_time) - 1):
-            pg.draw.line(screen, BLUE, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_time) - 1), bottom - squash(best_avg_time[i], GRAPH_LOG*4)*(bottom - top)/squash(max_time, GRAPH_LOG*4)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_time) - 1), bottom - squash(best_avg_time[i + 1], GRAPH_LOG*4)*(bottom - top)/squash(max_time, GRAPH_LOG*4)), 5)
+            pg.draw.line(screen, BLUE, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_time) - 1), bottom - log(best_avg_time[i], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_time) - 1), bottom - log(best_avg_time[i + 1], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), 5)
         if GRAPH_LOG:
             text = font.render("LOG", True, GREEN)
             screen.blit(text, (WIDTH + 30, 160))
         text = font.render(f"{max_time:.2f}", True, WHITE)
         screen.blit(text, (WIDTH + 30, 135))
     elif GRAPH_NUM == 1:
-        for i in range(gen):
+        for i in range(max(0, gen - len(COLOR_LIST) - 1), gen):
             max_time = 0
             if len(death_time[i]) > 0:
                 max_time = max(death_time[i])
@@ -518,11 +524,15 @@ def draw_stats():
             for t in range(max_time):
                 while idx < len(death_time[i]) and death_time[i][idx] <= t:
                     idx += 1
-                pg.draw.line(screen, COLOR_LIST[min(gen - i - 1, len(COLOR_LIST)-1)], (WIDTH + 20 + t*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - (POPULATION - prev_idx)*(bottom - top)/POPULATION), (WIDTH + 20 + (t + 1)*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - (POPULATION - idx)*(bottom - top)/POPULATION), 5)
+                pg.draw.line(screen, COLOR_LIST[min(gen - i - 1, len(COLOR_LIST)-1)], (WIDTH + 20 + t*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - log(POPULATION - prev_idx, GRAPH_LOG)*(bottom - top)/log(POPULATION, GRAPH_LOG)), (WIDTH + 20 + (t + 1)*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - log(POPULATION - idx, GRAPH_LOG)*(bottom - top)/log(POPULATION, GRAPH_LOG)), 5)
                 prev_idx = idx
-            pg.draw.line(screen, COLOR_LIST[min(gen - i - 1, len(COLOR_LIST)-1)], (WIDTH + 20 + max_time*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - (POPULATION - prev_idx)*(bottom - top)/POPULATION), (WIDTH + 20 + max_time*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom), 5)
+            pg.draw.line(screen, COLOR_LIST[min(gen - i - 1, len(COLOR_LIST)-1)], (WIDTH + 20 + max_time*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - log(POPULATION - prev_idx, GRAPH_LOG)*(bottom - top)/log(POPULATION, GRAPH_LOG)), (WIDTH + 20 + max_time*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom), 5)
+        if GRAPH_LOG:
+            text = font.render("LOG", True, GREEN)
+            screen.blit(text, (WIDTH + 30, 160))
         text = font.render(f"{POPULATION}", True, WHITE)
         screen.blit(text, (WIDTH + 30, 135))
+        
 species = []
 population = reproduce([Player() for _ in range(POPULATION)])
 dead_population = []
@@ -604,8 +614,7 @@ while run:
         pipes.append(Pipe(WIDTH))
         pipes[-1].height = max(pipes[-2].height-1, GAP_MIN)
         pipes[-1].y = pseudo_random(pipes[-2].y, HEIGHT_RANGE[0], HEIGHT_RANGE[1]) + np.random.randint(-5, 5)
-        #PIPE_DIST = np.random.randint(70, 80)
-        PIPE_DIST = 75 + np.random.randint(-5, 5)
+        PIPE_DIST = 50 + np.random.randint(-5, 5)
         pipe_time = 0
     
     i = 0
