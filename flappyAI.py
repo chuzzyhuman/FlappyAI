@@ -6,7 +6,9 @@ WIDTH, HEIGHT = 600, 600
 SCREEN_WIDTH = 1200
 FPS, GROUND_SPEED = 60, 7
 PLAYER_SIZE, GROUND_SIZE = 40, 100
-PIPE_WIDTH, PIPE_EDGE, PIPE_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 80, 70
+PIPE_WIDTH, PIPE_EDGE, GAP_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 80, 75
+PSEUDO_RANDOM = False
+HEIGHT_RAND_RANGE, DIST_RAND_RANGE = 0, 0
 HEIGHT_RANGE = (50, HEIGHT - GROUND_SIZE - 300)
 EYES_OPEN = False
 SHOW_TEXT, GRAPH_LOG, GRAPH_NUM = True, True, 0
@@ -360,7 +362,7 @@ class Player:
             if self.y < pipe.y or self.y + self.height > pipe.y + pipe.height:
                 self.dead = True
         if self.dead:
-            death_time[gen-1].append(time)
+            death_time[gen-1][time] = death_time[gen-1].get(time, 0) + 1
         else:
             self.genome.fitness += 0.01
         
@@ -385,7 +387,7 @@ class Pipe:
         self.x = x
         self.y = 100
         self.width = PIPE_WIDTH
-        self.height = PIPE_HEIGHT
+        self.height = GAP_HEIGHT
         
     def move(self):
         self.x -= GROUND_SPEED
@@ -519,14 +521,16 @@ def draw_stats():
                 max_time = max(death_time[i])
             if i == gen - 1:
                 max_time = max(max_time, time)
-            prev_idx = 0
-            idx = 0
-            for t in range(max_time):
-                while idx < len(death_time[i]) and death_time[i][idx] <= t:
-                    idx += 1
-                pg.draw.line(screen, COLOR_LIST[min(gen - i - 1, len(COLOR_LIST)-1)], (WIDTH + 20 + t*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - log(POPULATION - prev_idx, GRAPH_LOG)*(bottom - top)/log(POPULATION, GRAPH_LOG)), (WIDTH + 20 + (t + 1)*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - log(POPULATION - idx, GRAPH_LOG)*(bottom - top)/log(POPULATION, GRAPH_LOG)), 5)
-                prev_idx = idx
-            pg.draw.line(screen, COLOR_LIST[min(gen - i - 1, len(COLOR_LIST)-1)], (WIDTH + 20 + max_time*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - log(POPULATION - prev_idx, GRAPH_LOG)*(bottom - top)/log(POPULATION, GRAPH_LOG)), (WIDTH + 20 + max_time*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom), 5)
+            color = COLOR_LIST[min(gen - i - 1, len(COLOR_LIST)-1)]
+            total = 0
+            prev_point = (WIDTH + 20, top)
+            for k, v in death_time[i].items():
+                total += v
+                pg.draw.line(screen, color, prev_point, (WIDTH + 20 + (k-1)*(SCREEN_WIDTH-WIDTH-40)/max_time, prev_point[1]), 5)
+                pg.draw.line(screen, color, (WIDTH + 20 + (k-1)*(SCREEN_WIDTH-WIDTH-40)/max_time, prev_point[1]), (WIDTH + 20 + k*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - log(POPULATION - total, GRAPH_LOG)*(bottom - top)/log(POPULATION, GRAPH_LOG)), 5)
+                prev_point = (WIDTH + 20 + k*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - log(POPULATION - total, GRAPH_LOG)*(bottom - top)/log(POPULATION, GRAPH_LOG))
+            pg.draw.line(screen, color, prev_point, (SCREEN_WIDTH - 21, prev_point[1]), 5)
+            pg.draw.line(screen, color, (SCREEN_WIDTH - 21, prev_point[1]), (SCREEN_WIDTH - 20, bottom), 5)
         if GRAPH_LOG:
             text = font.render("LOG", True, GREEN)
             screen.blit(text, (WIDTH + 30, 160))
@@ -543,7 +547,7 @@ time, pipe_time, gen, run, pause, speed_idx = 0, 0, 1, True, False, 2
 speed = [0.1, 1, 100]
 best_time = [0]
 best_avg_time = [0]
-death_time = [[] for _ in range(10000)]
+death_time = [{} for _ in range(10000)]
 
 """
 g1 = Genome()
@@ -613,9 +617,12 @@ while run:
     if pipe_time == PIPE_DIST:
         pipes.append(Pipe(WIDTH))
         pipes[-1].height = max(pipes[-2].height-1, GAP_MIN)
-        pipes[-1].y = pseudo_random(pipes[-2].y, HEIGHT_RANGE[0], HEIGHT_RANGE[1]) + np.random.randint(-5, 5)
-        PIPE_DIST = 50 + np.random.randint(-5, 5)
         pipe_time = 0
+        if PSEUDO_RANDOM:
+            pipes[-1].y = pseudo_random(pipes[-2].y, HEIGHT_RANGE[0], HEIGHT_RANGE[1]) + np.random.randint(-HEIGHT_RAND_RANGE, HEIGHT_RAND_RANGE)
+            PIPE_DIST = 50 + np.random.randint(-DIST_RAND_RANGE, DIST_RAND_RANGE)
+        else:
+            pipes[-1].y = np.random.randint(HEIGHT_RANGE[0], HEIGHT_RANGE[1])
     
     i = 0
     while i < len(population):
