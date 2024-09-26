@@ -6,7 +6,7 @@ WIDTH, HEIGHT = 600, 600
 SCREEN_WIDTH = 1200
 FPS, GROUND_SPEED = 60, 7
 PLAYER_SIZE, GROUND_SIZE = 40, 100
-PIPE_WIDTH, PIPE_EDGE, GAP_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 75, 75
+PIPE_WIDTH, PIPE_EDGE, GAP_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 75, 70
 PSEUDO_RANDOM = False
 HEIGHT_RAND_RANGE, DIST_RAND_RANGE = 0, 0
 HEIGHT_RANGE = (50, HEIGHT - GROUND_SIZE - 300)
@@ -617,12 +617,12 @@ while run:
     if pipe_time == PIPE_DIST:
         pipes.append(Pipe(WIDTH))
         pipes[-1].height = max(pipes[-2].height-1, GAP_MIN)
-        pipe_time = 0
         if PSEUDO_RANDOM:
             pipes[-1].y = pseudo_random(pipes[-2].y, HEIGHT_RANGE[0], HEIGHT_RANGE[1]) + np.random.randint(-HEIGHT_RAND_RANGE, HEIGHT_RAND_RANGE+1)
-            PIPE_DIST = 50 + np.random.randint(-DIST_RAND_RANGE, DIST_RAND_RANGE+1)
+            pipe_time = np.random.randint(-DIST_RAND_RANGE, DIST_RAND_RANGE+1)
         else:
             pipes[-1].y = np.random.randint(HEIGHT_RANGE[0], HEIGHT_RANGE[1])
+            pipe_time = 0
     
     i = 0
     while i < len(population):
