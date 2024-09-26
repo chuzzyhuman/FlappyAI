@@ -6,7 +6,7 @@ WIDTH, HEIGHT = 600, 600
 SCREEN_WIDTH = 1200
 FPS, GROUND_SPEED = 60, 7
 PLAYER_SIZE, GROUND_SIZE = 40, 100
-PIPE_WIDTH, PIPE_EDGE, GAP_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 80, 75
+PIPE_WIDTH, PIPE_EDGE, GAP_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 80, 70
 PSEUDO_RANDOM = False
 HEIGHT_RAND_RANGE, DIST_RAND_RANGE = 0, 0
 HEIGHT_RANGE = (50, HEIGHT - GROUND_SIZE - 300)
@@ -14,11 +14,11 @@ EYES_OPEN = False
 SHOW_TEXT, GRAPH_LOG, GRAPH_NUM = True, True, 0
 
 BLACK, WHITE, RED, GREEN, BLUE = (0, 0, 0), (255, 255, 255), (255, 0, 0), (0, 255, 0), (0, 0, 255)
-COLOR_LIST = [(i, 255, 0) for i in range(0, 256, 51)] + [(255, i, 0) for i in range(255, -1, -51)] + [(i, 0, 0) for i in range(255, -1, -51)] + [(0, 0, 0) for i in range(50)]
+COLOR_LIST = [(i, 255, 0) for i in range(0, 256, 51)] + [(255, i, 0) for i in range(255, -1, -51)] + [(i, 0, 0) for i in range(255, -1, -51)] + [(0, 0, 0) for i in range(100)]
 
 INPUTS, OUTPUTS = 4, 1
 NODE_ID, INNOVATION = INPUTS + OUTPUTS, 0
-POPULATION = 5000
+POPULATION = 500
 
 c1, c2, c3 = 1, 1, 0.4
 MAX_WEIGHT, MAX_BIAS = 5, 5
@@ -515,7 +515,7 @@ def draw_stats():
         text = font.render(f"{max_time:.2f}", True, WHITE)
         screen.blit(text, (WIDTH + 30, 135))
     elif GRAPH_NUM == 1:
-        for i in range(max(0, gen - len(COLOR_LIST) - 1), gen):
+        for i in range(max(0, gen - len(COLOR_LIST) + 101), gen):
             max_time = 0
             if len(death_time[i]) > 0:
                 max_time = max(death_time[i])
@@ -619,8 +619,8 @@ while run:
         pipes[-1].height = max(pipes[-2].height-1, GAP_MIN)
         pipe_time = 0
         if PSEUDO_RANDOM:
-            pipes[-1].y = pseudo_random(pipes[-2].y, HEIGHT_RANGE[0], HEIGHT_RANGE[1]) + np.random.randint(-HEIGHT_RAND_RANGE, HEIGHT_RAND_RANGE)
-            PIPE_DIST = 50 + np.random.randint(-DIST_RAND_RANGE, DIST_RAND_RANGE)
+            pipes[-1].y = pseudo_random(pipes[-2].y, HEIGHT_RANGE[0], HEIGHT_RANGE[1]) + np.random.randint(-HEIGHT_RAND_RANGE, HEIGHT_RAND_RANGE+1)
+            PIPE_DIST = 50 + np.random.randint(-DIST_RAND_RANGE, DIST_RAND_RANGE+1)
         else:
             pipes[-1].y = np.random.randint(HEIGHT_RANGE[0], HEIGHT_RANGE[1])
     
