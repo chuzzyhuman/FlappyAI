@@ -6,13 +6,13 @@ WIDTH, HEIGHT = 600, 600
 SCREEN_WIDTH = 1200
 FPS, GROUND_SPEED = 60, 7
 PLAYER_SIZE, GROUND_SIZE = 40, 100
-PIPE_WIDTH, PIPE_EDGE, PIPE_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 75, 70
-HEIGHT_RANGE = (50, HEIGHT - GROUND_SIZE - 250)
+PIPE_WIDTH, PIPE_EDGE, PIPE_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 80, 70
+HEIGHT_RANGE = (50, HEIGHT - GROUND_SIZE - 300)
 EYES_OPEN = False
-SHOW_TEXT, GRAPH_LOG = True, True
+SHOW_TEXT, GRAPH_LOG, GRAPH_NUM = True, True, 0
 
 BLACK, WHITE, RED, GREEN, BLUE = (0, 0, 0), (255, 255, 255), (255, 0, 0), (0, 255, 0), (0, 0, 255)
-SPECIES_COLOR = [(i, 255, 0) for i in range(0, 256, 51)] + [(255, i, 0) for i in range(255, -1, -51)] + [(i, 0, 0) for i in range(255, -1, -51)] + [(0, 0, 0) for i in range(50)]
+COLOR_LIST = [(i, 255, 0) for i in range(0, 256, 51)] + [(255, i, 0) for i in range(255, -1, -51)] + [(i, 0, 0) for i in range(255, -1, -51)] + [(0, 0, 0) for i in range(50)]
 
 INPUTS, OUTPUTS = 4, 1
 NODE_ID, INNOVATION = INPUTS + OUTPUTS, 0
@@ -22,7 +22,7 @@ c1, c2, c3 = 1, 1, 0.4
 MAX_WEIGHT, MAX_BIAS = 5, 5
 DELTA_THRESHOLD = 0.4
 DEL_NODE, ADD_NODE = 0.02, 0.02
-DEL_LINK, ADD_LINK = 0.05, 0.3
+DEL_LINK, ADD_LINK = 0.05, 0.2
 MUTATE_PROB = 0.7
 ACTIVATION_MODE = 2
 ACTIVATION_THRESHOLD = [0, 0.5, 0.5, 0.5]
@@ -353,12 +353,14 @@ class Player:
         if self.x + self.width > pipe.x and self.x < pipe.x + pipe.width:
             if self.y < pipe.y or self.y + self.height > pipe.y + pipe.height:
                 self.dead = True
-        if not self.dead:
+        if self.dead:
+            death_time[gen-1].append(time)
+        else:
             self.genome.fitness += 0.01
         
     def draw(self):
         pg.draw.rect(screen, WHITE, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
-        pg.draw.rect(screen, BLUE if self.dead else SPECIES_COLOR[self.genome.species], (self.x, self.y, self.width, self.height))
+        pg.draw.rect(screen, BLUE if self.dead else COLOR_LIST[self.genome.species], (self.x, self.y, self.width, self.height))
         if EYES_OPEN:
             if self.dead:
                 pg.draw.line(screen, BLACK, (self.x + 15, self.y + 10), (self.x + 23, self.y + 18), 5)
@@ -431,10 +433,10 @@ def reproduce(population):
         elif i <= 15:
             n = 5
         s = species[i]
-        for _ in range(POPULATION//20+n):
+        for _ in range(POPULATION//15+n):
             j = min(int(abs(np.random.randn())*3), 10, len(s)-1)
             child = s[j].clone()
-            for _ in range(np.random.randint(5)):
+            for _ in range(np.random.randint(3)+1):
                 child.mutate()
             if child.max_layer <= MAX_LAYER and max([len(l) for l in child.layer_dict.values()]) <= 5:
                 child.avg_fitness = s[j].avg_fitness
@@ -492,27 +494,35 @@ def draw_stats():
                 screen.blit(text, (WIDTH + w + i*g1 - 4.7 - 5.2*int(np.log10(node if node != 0 else 1)), h + best.layer_dict[i].index(node)*g2 - 12))
     pg.draw.line(screen, WHITE, (WIDTH + 20, bottom), (SCREEN_WIDTH - 20, bottom), 5)
     pg.draw.line(screen, WHITE, (WIDTH + 20, top), (WIDTH + 20, bottom), 5)
-    max_time = max(best_time + best_avg_time)
-    text = font.render(f"{max_time:.2f}", True, WHITE)
-    screen.blit(text, (WIDTH + 30, 135))
     
-    for i in range(len(best_time) - 1):
-        pg.draw.line(screen, RED, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_time) - 1), bottom - squash(best_time[i], GRAPH_LOG*4)*(bottom - top)/squash(max_time, GRAPH_LOG*4)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_time) - 1), bottom - squash(best_time[i + 1], GRAPH_LOG*4)*(bottom - top)/squash(max_time, GRAPH_LOG*4)), 5)
-    for i in range(len(best_avg_time) - 1):
-        pg.draw.line(screen, BLUE, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_time) - 1), bottom - squash(best_avg_time[i], GRAPH_LOG*4)*(bottom - top)/squash(max_time, GRAPH_LOG*4)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_time) - 1), bottom - squash(best_avg_time[i + 1], GRAPH_LOG*4)*(bottom - top)/squash(max_time, GRAPH_LOG*4)), 5)
-    
-    if GRAPH_LOG:
-        text = font.render("LOG", True, GREEN)
-        screen.blit(text, (WIDTH + 30, 160))
-    
-    """
-    for i, node in enumerate(best.nodes):
-        print(f"Node {i}: {node.id}, {node.bias}")
-    for i, link in enumerate(best.links):
-        print(f"Link {i}: {link.in_id} -> {link.out_id}, {link.weight}, {link.enabled}, {link.innov}")
-    print()
-    """
-    
+    if GRAPH_NUM == 0:
+        max_time = max(best_time + best_avg_time)
+        for i in range(len(best_time) - 1):
+            pg.draw.line(screen, RED, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_time) - 1), bottom - squash(best_time[i], GRAPH_LOG*4)*(bottom - top)/squash(max_time, GRAPH_LOG*4)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_time) - 1), bottom - squash(best_time[i + 1], GRAPH_LOG*4)*(bottom - top)/squash(max_time, GRAPH_LOG*4)), 5)
+        for i in range(len(best_avg_time) - 1):
+            pg.draw.line(screen, BLUE, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_time) - 1), bottom - squash(best_avg_time[i], GRAPH_LOG*4)*(bottom - top)/squash(max_time, GRAPH_LOG*4)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_time) - 1), bottom - squash(best_avg_time[i + 1], GRAPH_LOG*4)*(bottom - top)/squash(max_time, GRAPH_LOG*4)), 5)
+        if GRAPH_LOG:
+            text = font.render("LOG", True, GREEN)
+            screen.blit(text, (WIDTH + 30, 160))
+        text = font.render(f"{max_time:.2f}", True, WHITE)
+        screen.blit(text, (WIDTH + 30, 135))
+    elif GRAPH_NUM == 1:
+        for i in range(gen):
+            max_time = 0
+            if len(death_time[i]) > 0:
+                max_time = max(death_time[i])
+            if i == gen - 1:
+                max_time = max(max_time, time)
+            prev_idx = 0
+            idx = 0
+            for t in range(max_time):
+                while idx < len(death_time[i]) and death_time[i][idx] <= t:
+                    idx += 1
+                pg.draw.line(screen, COLOR_LIST[min(gen - i - 1, len(COLOR_LIST)-1)], (WIDTH + 20 + t*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - (POPULATION - prev_idx)*(bottom - top)/POPULATION), (WIDTH + 20 + (t + 1)*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - (POPULATION - idx)*(bottom - top)/POPULATION), 5)
+                prev_idx = idx
+            pg.draw.line(screen, COLOR_LIST[min(gen - i - 1, len(COLOR_LIST)-1)], (WIDTH + 20 + max_time*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - (POPULATION - prev_idx)*(bottom - top)/POPULATION), (WIDTH + 20 + max_time*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom), 5)
+        text = font.render(f"{POPULATION}", True, WHITE)
+        screen.blit(text, (WIDTH + 30, 135))
 species = []
 population = reproduce([Player() for _ in range(POPULATION)])
 dead_population = []
@@ -523,6 +533,7 @@ time, pipe_time, gen, run, pause, speed_idx = 0, 0, 1, True, False, 2
 speed = [0.1, 1, 100]
 best_time = [0]
 best_avg_time = [0]
+death_time = [[] for _ in range(10000)]
 
 """
 g1 = Genome()
@@ -550,12 +561,14 @@ while run:
                 speed_idx = max(0, speed_idx - 1)
             if event.key == pg.K_RIGHT:
                 speed_idx = min(2, speed_idx + 1)
-            if event.key == pg.K_g:
+            if event.key == pg.K_l:
                 GRAPH_LOG = not GRAPH_LOG
             if event.key == pg.K_e:
                 EYES_OPEN = not EYES_OPEN
             if event.key == pg.K_s:
                 SHOW_TEXT = not SHOW_TEXT
+            if event.key == pg.K_g:
+                GRAPH_NUM = (GRAPH_NUM + 1) % 2
     
     if pause:
         pg.draw.rect(screen, WHITE, (10, 10, 10, 30))
@@ -591,8 +604,8 @@ while run:
         pipes.append(Pipe(WIDTH))
         pipes[-1].height = max(pipes[-2].height-1, GAP_MIN)
         pipes[-1].y = pseudo_random(pipes[-2].y, HEIGHT_RANGE[0], HEIGHT_RANGE[1]) + np.random.randint(-5, 5)
-        PIPE_DIST = np.random.randint(70, 80)
-        #PIPE_DIST = 70 + np.random.randint(-5, 5)
+        #PIPE_DIST = np.random.randint(70, 80)
+        PIPE_DIST = 75 + np.random.randint(-5, 5)
         pipe_time = 0
     
     i = 0
@@ -630,7 +643,6 @@ while run:
         pipes = [Pipe(WIDTH)]
         pipe_idx = 0
 
-        #node_ids is n.id of all the population
         node_ids = [n.id for n in np.concatenate(([player.genome.nodes for player in population]))]
         for i in range(1, 10000000):
             if i not in node_ids:
