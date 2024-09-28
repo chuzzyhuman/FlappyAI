@@ -6,10 +6,10 @@ WIDTH, HEIGHT = 600, 600
 SCREEN_WIDTH = 1200
 FPS, GROUND_SPEED = 60, 7
 PLAYER_SIZE, GROUND_SIZE = 40, 100
-PIPE_WIDTH, PIPE_EDGE, GAP_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 75, 70
-PSEUDO_RANDOM = False
-HEIGHT_RAND_RANGE, DIST_RAND_RANGE = 0, 0
-HEIGHT_RANGE = (50, HEIGHT - GROUND_SIZE - 300)
+PIPE_WIDTH, PIPE_EDGE, GAP_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 80, 70
+PSEUDO_RANDOM = True
+HEIGHT_RAND_RANGE, DIST_RAND_RANGE = 1, 1
+HEIGHT_RANGE = (50, HEIGHT - GROUND_SIZE - 250)
 EYES_OPEN = False
 SHOW_TEXT, GRAPH_LOG, GRAPH_NUM = True, True, 0
 
@@ -184,6 +184,7 @@ class Genome:
             link = self.list_order[cnt]
             self.value[self.id_to_index[link.out_id]] += self.value[self.id_to_index[link.in_id]] * link.weight
             cnt += 1
+        self.value[INPUTS:INPUTS+OUTPUTS] = squash(self.value[INPUTS:INPUTS+OUTPUTS], ACTIVATION_MODE)
         return self.value[INPUTS:INPUTS+OUTPUTS]
 
     def add_node(self, link):
@@ -621,8 +622,8 @@ while run:
             pipes[-1].y = pseudo_random(pipes[-2].y, HEIGHT_RANGE[0], HEIGHT_RANGE[1]) + np.random.randint(-HEIGHT_RAND_RANGE, HEIGHT_RAND_RANGE+1)
             pipe_time = np.random.randint(-DIST_RAND_RANGE, DIST_RAND_RANGE+1)
         else:
-            pipes[-1].y = np.random.randint(HEIGHT_RANGE[0], HEIGHT_RANGE[1])
-            pipe_time = 0
+            pipes[-1].y = np.random.randint(HEIGHT_RANGE[0], HEIGHT_RANGE[1]) + np.random.randint(-HEIGHT_RAND_RANGE, HEIGHT_RAND_RANGE+1)
+            pipe_time = np.random.randint(-DIST_RAND_RANGE, DIST_RAND_RANGE+1)
     
     i = 0
     while i < len(population):
