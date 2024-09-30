@@ -6,10 +6,10 @@ WIDTH, HEIGHT = 600, 600
 SCREEN_WIDTH = 1200
 FPS, GROUND_SPEED = 60, 7
 PLAYER_SIZE, GROUND_SIZE = 40, 100
-PIPE_WIDTH, PIPE_EDGE, GAP_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 80, 70
+PIPE_WIDTH, PIPE_EDGE, GAP_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 80, 60
 PSEUDO_RANDOM = True
-HEIGHT_RAND_RANGE, DIST_RAND_RANGE = 1, 1
-HEIGHT_RANGE = (50, HEIGHT - GROUND_SIZE - 250)
+HEIGHT_RAND_RANGE, DIST_RAND_RANGE = 2, 2
+HEIGHT_RANGE = (50, HEIGHT - GROUND_SIZE - 300)
 EYES_OPEN = False
 SHOW_TEXT, GRAPH_LOG, GRAPH_NUM = True, True, 0
 
@@ -55,14 +55,11 @@ def squash(x, n):
         return np.tanh(x)
     if n == 3:
         return max(0, x)
-    if n == 4:
-        return np.log10(1+x)
     
 def log(x, n):
     if n:
         return np.log10(1+x)
     return x
-
 
 class Node:
     def __init__(self, id, bias=0):
@@ -386,7 +383,7 @@ class Player:
 class Pipe:
     def __init__(self, x):
         self.x = x
-        self.y = 100
+        self.y = HEIGHT_RANGE[0] + 20
         self.width = PIPE_WIDTH
         self.height = GAP_HEIGHT
         
@@ -433,7 +430,7 @@ def reproduce(population):
     population.sort(key=lambda x: x.genome.avg_fitness, reverse=True)
     species = speciate([player.genome for player in population])
     new_population = [population[i].genome for i in range(POPULATION//100)]
-    for i in range(len(species)//4+1):
+    for i in range(len(species)//3+1):
         n = 0
         if i <= 5:
             n = 50
@@ -445,7 +442,7 @@ def reproduce(population):
         for _ in range(POPULATION//15+n):
             j = min(int(abs(np.random.randn())*3), 10, len(s)-1)
             child = s[j].clone()
-            for _ in range(np.random.randint(3)+1):
+            for _ in range(np.random.randint(5)+1):
                 child.mutate()
             if child.max_layer <= MAX_LAYER and max([len(l) for l in child.layer_dict.values()]) <= 5:
                 child.avg_fitness = s[j].avg_fitness
@@ -654,22 +651,25 @@ while run:
         best_avg_time.append(max(player.genome.avg_fitness for player in dead_population))
         population = reproduce(dead_population)
         dead_population = []
+        
+        node_ids = np.sort(np.unique(np.array([node.id for player in population for node in player.genome.nodes])))
+        link_innovs = np.sort(np.unique(np.array([link.innov for player in population for link in player.genome.links])))
+        node_id_map = {node_ids[i]: i for i in range(len(node_ids))}
+        link_innov_map = {link_innovs[i]: i for i in range(len(link_innovs))}
+        NODE_ID = len(node_ids)
+        INNOVATION = len(link_innovs)
+
         for player in population:
-            player.reset()
+            for node in player.genome.nodes:
+                node.id = node_id_map[node.id]
+            for link in player.genome.links:
+                link.in_id = node_id_map[link.in_id]
+                link.out_id = node_id_map[link.out_id]
+                link.innov = link_innov_map[link.innov]
             player.genome.reload()
+            player.reset()
         pipes = [Pipe(WIDTH)]
         pipe_idx = 0
 
-        node_ids = [n.id for n in np.concatenate(([player.genome.nodes for player in population]))]
-        for i in range(1, 10000000):
-            if i not in node_ids:
-                NODE_ID = i
-                break
-        innovs = [l.innov for l in np.concatenate(([player.genome.links for player in population]))]
-        for i in range(1, 10000000):
-            if i not in innovs:
-                INNOVATION = i
-                break
-    
     if speed[speed_idx] != 100:
         clock.tick(FPS * speed[speed_idx])
