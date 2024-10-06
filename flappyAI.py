@@ -681,13 +681,13 @@ while run:
     if pipes[pipe_idx].x + PIPE_WIDTH < PLAYER_X:
         pipe_idx += 1
         for player in population:
-            if 0 < player.yspeed < 2:
+            if -1 < player.yspeed < 4:
                 if player.y > 400:
-                    player.genome.fitness += 0.2
+                    player.genome.fitness += 0.1
                 else:
-                    player.genome.fitness += 0.05
+                    player.genome.fitness += 0.02
             else:
-                player.genome.fitness -= 0.02
+                player.genome.fitness -= 0.05
     if pipe_time == PIPE_DIST:
         pipes.append(Pipe(WIDTH))
         pipes[-1].height = max(pipes[-2].height - 0.5, GAP_MIN)
