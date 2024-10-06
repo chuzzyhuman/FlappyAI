@@ -552,36 +552,36 @@ def draw_stats():
     pg.draw.line(screen, WHITE, (WIDTH + 20, top), (WIDTH + 20, bottom), 5)
     
     if GRAPH_NUM == 0:
-        max_time = max(best_score + best_avg_score)
+        max_score = max(best_score + best_avg_score)
         for i in range(len(best_score) - 1):
-            pg.draw.line(screen, RED, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_score) - 1), bottom - log(best_score[i], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_score) - 1), bottom - log(best_score[i + 1], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), 5)
+            pg.draw.line(screen, RED, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_score) - 1), bottom - log(best_score[i], GRAPH_LOG)*(bottom - top)/log(max_score, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_score) - 1), bottom - log(best_score[i + 1], GRAPH_LOG)*(bottom - top)/log(max_score, GRAPH_LOG)), 5)
         for i in range(len(best_avg_score) - 1):
-            pg.draw.line(screen, BLUE, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_score) - 1), bottom - log(best_avg_score[i], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_score) - 1), bottom - log(best_avg_score[i + 1], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), 5)
-        text = font.render(f"{max_time:.2f}", True, WHITE)
+            pg.draw.line(screen, BLUE, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_score) - 1), bottom - log(best_avg_score[i], GRAPH_LOG)*(bottom - top)/log(max_score, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_score) - 1), bottom - log(best_avg_score[i + 1], GRAPH_LOG)*(bottom - top)/log(max_score, GRAPH_LOG)), 5)
+        text = font.render(f"{max_score:.2f}", True, WHITE)
         screen.blit(text, (WIDTH + 30, 135))
     elif GRAPH_NUM == 1:
-        max_time = max(best_fitness + best_avg_fitness)
+        max_fitness = max(best_fitness + best_avg_fitness)
         for i in range(len(best_fitness) - 1):
-            pg.draw.line(screen, RED, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_fitness) - 1), bottom - log(best_fitness[i], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_fitness) - 1), bottom - log(best_fitness[i + 1], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), 5)
+            pg.draw.line(screen, (255, 255, 0), (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_fitness) - 1), bottom - log(best_fitness[i], GRAPH_LOG)*(bottom - top)/log(max_fitness, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_fitness) - 1), bottom - log(best_fitness[i + 1], GRAPH_LOG)*(bottom - top)/log(max_fitness, GRAPH_LOG)), 5)
         for i in range(len(best_avg_fitness) - 1):
-            pg.draw.line(screen, BLUE, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_fitness) - 1), bottom - log(best_avg_fitness[i], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_fitness) - 1), bottom - log(best_avg_fitness[i + 1], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), 5)
-        text = font.render(f"{max_time:.2f}", True, WHITE)
+            pg.draw.line(screen, (255, 0, 255), (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_fitness) - 1), bottom - log(best_avg_fitness[i], GRAPH_LOG)*(bottom - top)/log(max_fitness, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_fitness) - 1), bottom - log(best_avg_fitness[i + 1], GRAPH_LOG)*(bottom - top)/log(max_fitness, GRAPH_LOG)), 5)
+        text = font.render(f"{max_fitness:.2f}", True, WHITE)
         screen.blit(text, (WIDTH + 30, 135))
     elif GRAPH_NUM == 2:
         for i in range(max(0, gen - len(COLOR_LIST) + 101), gen):
-            max_time = 0
+            max_score = 0
             if len(death_time[i]) > 0:
-                max_time = max(death_time[i])
+                max_score = max(death_time[i])
             if i == gen - 1:
-                max_time = max(max_time, time)
+                max_score = max(max_score, time)
             color = COLOR_LIST[min(gen - i - 1, len(COLOR_LIST)-1)]
             total = 0
             prev_point = (WIDTH + 20, top)
             for k, v in death_time[i].items():
                 total += v
-                pg.draw.line(screen, color, prev_point, (WIDTH + 20 + (k-1)*(SCREEN_WIDTH-WIDTH-40)/max_time, prev_point[1]), 5)
-                pg.draw.line(screen, color, (WIDTH + 20 + (k-1)*(SCREEN_WIDTH-WIDTH-40)/max_time, prev_point[1]), (WIDTH + 20 + k*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - log(POPULATION - total, GRAPH_LOG)*(bottom - top)/log(POPULATION, GRAPH_LOG)), 5)
-                prev_point = (WIDTH + 20 + k*(SCREEN_WIDTH-WIDTH-40)/max_time, bottom - log(POPULATION - total, GRAPH_LOG)*(bottom - top)/log(POPULATION, GRAPH_LOG))
+                pg.draw.line(screen, color, prev_point, (WIDTH + 20 + (k-1)*(SCREEN_WIDTH-WIDTH-40)/max_score, prev_point[1]), 5)
+                pg.draw.line(screen, color, (WIDTH + 20 + (k-1)*(SCREEN_WIDTH-WIDTH-40)/max_score, prev_point[1]), (WIDTH + 20 + k*(SCREEN_WIDTH-WIDTH-40)/max_score, bottom - log(POPULATION - total, GRAPH_LOG)*(bottom - top)/log(POPULATION, GRAPH_LOG)), 5)
+                prev_point = (WIDTH + 20 + k*(SCREEN_WIDTH-WIDTH-40)/max_score, bottom - log(POPULATION - total, GRAPH_LOG)*(bottom - top)/log(POPULATION, GRAPH_LOG))
             pg.draw.line(screen, color, prev_point, (SCREEN_WIDTH - 21, prev_point[1]), 5)
             pg.draw.line(screen, color, (SCREEN_WIDTH - 21, prev_point[1]), (SCREEN_WIDTH - 20, bottom), 5)
         text = font.render(f"{POPULATION}", True, WHITE)
