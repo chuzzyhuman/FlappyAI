@@ -7,10 +7,11 @@ SCREEN_WIDTH = 1200
 FPS, GROUND_SPEED = 60, 7
 PLAYER_SIZE, GROUND_SIZE = 40, 100
 PLAYER_X, PLAYER_Y = 50, 200
+MAX_YSPEED = 15
 PIPE_WIDTH, PIPE_EDGE, GAP_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 75, 70
 PSEUDO_RANDOM = True
 HEIGHT_RAND_RANGE, DIST_RAND_RANGE = 1, 1
-HEIGHT_RANGE = (50, HEIGHT - GROUND_SIZE - 300)
+HEIGHT_RANGE = (50, HEIGHT - GROUND_SIZE - 250)
 EYES_OPEN = False
 SHOW_TEXT, GRAPH_LOG, GRAPH_NUM = True, True, 0
 SAVE_MODE = False
@@ -25,8 +26,8 @@ POPULATION = 10000
 c1, c2, c3 = 1, 1, 0.4
 MAX_WEIGHT, MAX_BIAS = 5, 5
 DELTA_THRESHOLD = 0.4
-DEL_NODE, ADD_NODE = 0.02, 0.02
-DEL_LINK, ADD_LINK = 0.05, 0.1
+DEL_NODE, ADD_NODE = 0.01, 0.01
+DEL_LINK, ADD_LINK = 0.05, 0.2
 MUTATE_PROB = 0.7
 ACTIVATION_MODE = 2
 ACTIVATION_THRESHOLD = [0, 0.5, 0.5, 0.5]
@@ -316,18 +317,6 @@ class Genome:
         child.reload()
         return child
     
-def read_genome(file):
-    genome = Genome()
-    with open(file, "r") as f:
-        for i in range(INPUTS + OUTPUTS):
-            id, bias = map(float, f.readline().split())
-            genome.nodes[i] = Node(id, bias)
-        for line in f:
-            in_id, out_id, weight, enabled, innov = map(float, line.split())
-            genome.links = np.append(genome.links, Link(in_id, out_id, weight, enabled, innov))
-    genome.reload()
-    return genome
-
 class Player:
     def __init__(self, genome=None):
         self.x = PLAYER_X
@@ -349,8 +338,12 @@ class Player:
         
     def feed_forward(self):
         outputs = self.genome.feed_forward(self.input)
-        if outputs[0] > ACTIVATION_THRESHOLD[ACTIVATION_MODE]:
-            self.jump()
+        if OUTPUTS == 1:
+            if outputs[0] > ACTIVATION_THRESHOLD[ACTIVATION_MODE]:
+                self.jump()
+        elif OUTPUTS == 2:
+            if outputs[0] >= outputs[1]:
+                self.jump()
         
     def jump(self):
         if not self.dead:
@@ -363,8 +356,8 @@ class Player:
                       #(pipe.y - self.y + pipe.height - self.height) / PLAYER_SIZE,
                       (pipe.y - self.y + (pipe.height - self.height) / 2) / (PLAYER_SIZE*2),
                       (HEIGHT - GROUND_SIZE - self.y) / HEIGHT, 
-                      self.yspeed / 10]
-        if self.yspeed < 15:
+                      self.yspeed / MAX_YSPEED]
+        if self.yspeed < MAX_YSPEED:
             self.yspeed += 0.5
         if self.y >= HEIGHT - GROUND_SIZE - PLAYER_SIZE:
             self.y = HEIGHT - GROUND_SIZE - PLAYER_SIZE
@@ -422,6 +415,36 @@ def draw_pipe(pipe):
     pg.draw.rect(screen, (100, 100, 100), (pipe.x + edge, pipe.y + pipe.height, pipe.width - edge*2, HEIGHT - (pipe.y + pipe.height) + 20))
     pg.draw.rect(screen, (100, 100, 100), (pipe.x, pipe.y - 20, pipe.width, 20))
     pg.draw.rect(screen, (100, 100, 100), (pipe.x, pipe.y + pipe.height, pipe.width, 20))
+
+def read_genome(file):
+    genome = Genome()
+    with open(file, "r") as f:
+        for i in range(INPUTS + OUTPUTS):
+            id, bias = map(float, f.readline().split())
+            genome.nodes[i] = Node(id, bias)
+        for line in f:
+            in_id, out_id, weight, enabled, innov = map(float, line.split())
+            genome.links = np.append(genome.links, Link(in_id, out_id, weight, enabled, innov))
+    genome.reload()
+    return genome
+
+def push_innov():
+    node_ids = np.sort(np.unique(np.array([node.id for player in population for node in player.genome.nodes])))
+    link_innovs = np.sort(np.unique(np.array([link.innov for player in population for link in player.genome.links])))
+    node_id_map = {node_ids[i]: i for i in range(len(node_ids))}
+    link_innov_map = {link_innovs[i]: i for i in range(len(link_innovs))}
+    NODE_ID = len(node_ids)
+    INNOVATION = len(link_innovs)
+
+    for player in population:
+        for node in player.genome.nodes:
+            node.id = node_id_map[node.id]
+        for link in player.genome.links:
+            link.in_id = node_id_map[link.in_id]
+            link.out_id = node_id_map[link.out_id]
+            link.innov = link_innov_map[link.innov]
+        player.genome.reload()
+        player.reset()
 
 def speciate(population):
     species = []
@@ -529,14 +552,22 @@ def draw_stats():
     pg.draw.line(screen, WHITE, (WIDTH + 20, top), (WIDTH + 20, bottom), 5)
     
     if GRAPH_NUM == 0:
-        max_time = max(best_time + best_avg_time)
-        for i in range(len(best_time) - 1):
-            pg.draw.line(screen, RED, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_time) - 1), bottom - log(best_time[i], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_time) - 1), bottom - log(best_time[i + 1], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), 5)
-        for i in range(len(best_avg_time) - 1):
-            pg.draw.line(screen, BLUE, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_time) - 1), bottom - log(best_avg_time[i], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_time) - 1), bottom - log(best_avg_time[i + 1], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), 5)
+        max_time = max(best_score + best_avg_score)
+        for i in range(len(best_score) - 1):
+            pg.draw.line(screen, RED, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_score) - 1), bottom - log(best_score[i], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_score) - 1), bottom - log(best_score[i + 1], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), 5)
+        for i in range(len(best_avg_score) - 1):
+            pg.draw.line(screen, BLUE, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_score) - 1), bottom - log(best_avg_score[i], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_score) - 1), bottom - log(best_avg_score[i + 1], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), 5)
         text = font.render(f"{max_time:.2f}", True, WHITE)
         screen.blit(text, (WIDTH + 30, 135))
     elif GRAPH_NUM == 1:
+        max_time = max(best_fitness + best_avg_fitness)
+        for i in range(len(best_fitness) - 1):
+            pg.draw.line(screen, RED, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_fitness) - 1), bottom - log(best_fitness[i], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_fitness) - 1), bottom - log(best_fitness[i + 1], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), 5)
+        for i in range(len(best_avg_fitness) - 1):
+            pg.draw.line(screen, BLUE, (WIDTH + 20 + i*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_fitness) - 1), bottom - log(best_avg_fitness[i], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), (WIDTH + 20 + (i + 1)*(SCREEN_WIDTH-WIDTH-40)/(len(best_avg_fitness) - 1), bottom - log(best_avg_fitness[i + 1], GRAPH_LOG)*(bottom - top)/log(max_time, GRAPH_LOG)), 5)
+        text = font.render(f"{max_time:.2f}", True, WHITE)
+        screen.blit(text, (WIDTH + 30, 135))
+    elif GRAPH_NUM == 2:
         for i in range(max(0, gen - len(COLOR_LIST) + 101), gen):
             max_time = 0
             if len(death_time[i]) > 0:
@@ -555,6 +586,7 @@ def draw_stats():
             pg.draw.line(screen, color, (SCREEN_WIDTH - 21, prev_point[1]), (SCREEN_WIDTH - 20, bottom), 5)
         text = font.render(f"{POPULATION}", True, WHITE)
         screen.blit(text, (WIDTH + 30, 135))
+
     if GRAPH_LOG:
         text = font.render("LOG", True, GREEN)
         screen.blit(text, (WIDTH + 30, 160))
@@ -575,8 +607,10 @@ pipe_idx = 0
 
 time, pipe_time, gen, run, pause, speed_idx = 0, 0, 1, True, False, 2
 speed = [0.1, 1, 100]
-best_time = [0]
-best_avg_time = [0]
+best_score = [0]
+best_avg_score = [0]
+best_fitness = [0]
+best_avg_fitness = [0]
 death_time = [{} for _ in range(10000)]
 
 """
@@ -612,7 +646,7 @@ while run:
             if event.key == pg.K_h:
                 SHOW_TEXT = not SHOW_TEXT
             if event.key == pg.K_g:
-                GRAPH_NUM = (GRAPH_NUM + 1) % 2
+                GRAPH_NUM = (GRAPH_NUM + 1) % 3
             if event.key == pg.K_s:
                 SAVE_MODE = not SAVE_MODE
     
@@ -647,13 +681,16 @@ while run:
     if pipes[pipe_idx].x + PIPE_WIDTH < PLAYER_X:
         pipe_idx += 1
         for player in population:
-            if abs(player.yspeed) < 1:
-                player.genome.fitness += 3
+            if -2 < player.yspeed < 0:
+                if player.y > 400:
+                    player.genome.fitness += 0.1
+                else:
+                    player.genome.fitness += 0.02
             else:
-                player.genome.fitness += 1
+                player.genome.fitness -= 0.02
     if pipe_time == PIPE_DIST:
         pipes.append(Pipe(WIDTH))
-        pipes[-1].height = max(pipes[-2].height-1, GAP_MIN)
+        pipes[-1].height = max(pipes[-2].height - 0.5, GAP_MIN)
         if PSEUDO_RANDOM:
             pipes[-1].y = pseudo_random(pipes[-2].y, HEIGHT_RANGE[0], HEIGHT_RANGE[1]) + np.random.randint(-HEIGHT_RAND_RANGE, HEIGHT_RAND_RANGE+1)
             pipe_time = np.random.randint(-DIST_RAND_RANGE, DIST_RAND_RANGE+1)
@@ -691,29 +728,18 @@ while run:
         pipe_time = 0
         gen += 1
         for player in dead_population:
+            player.genome.fitness += np.log(player.genome.score + 1)
             player.genome.avg_fitness = (player.genome.avg_fitness*3 + player.genome.fitness)/4
             player.genome.avg_score = (player.genome.avg_score*3 + player.genome.score)/4
-        best_time.append(max(player.genome.score for player in dead_population))
-        best_avg_time.append(max(player.genome.avg_score for player in dead_population))
+        best_score.append(max(player.genome.score for player in dead_population))
+        best_avg_score.append(max(player.genome.avg_score for player in dead_population))
+        best_fitness.append(max(player.genome.fitness for player in dead_population))
+        best_avg_fitness.append(max(player.genome.avg_fitness for player in dead_population))
         population = reproduce(dead_population)
         dead_population = []
         
-        node_ids = np.sort(np.unique(np.array([node.id for player in population for node in player.genome.nodes])))
-        link_innovs = np.sort(np.unique(np.array([link.innov for player in population for link in player.genome.links])))
-        node_id_map = {node_ids[i]: i for i in range(len(node_ids))}
-        link_innov_map = {link_innovs[i]: i for i in range(len(link_innovs))}
-        NODE_ID = len(node_ids)
-        INNOVATION = len(link_innovs)
-
-        for player in population:
-            for node in player.genome.nodes:
-                node.id = node_id_map[node.id]
-            for link in player.genome.links:
-                link.in_id = node_id_map[link.in_id]
-                link.out_id = node_id_map[link.out_id]
-                link.innov = link_innov_map[link.innov]
-            player.genome.reload()
-            player.reset()
+        push_innov()
+        
         pipes = [Pipe(WIDTH)]
         pipe_idx = 0
 
