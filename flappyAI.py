@@ -681,11 +681,11 @@ while run:
     if pipes[pipe_idx].x + PIPE_WIDTH < PLAYER_X:
         pipe_idx += 1
         for player in population:
-            if -2 < player.yspeed < 0:
+            if 0 < player.yspeed < 2:
                 if player.y > 400:
-                    player.genome.fitness += 0.1
+                    player.genome.fitness += 0.2
                 else:
-                    player.genome.fitness += 0.02
+                    player.genome.fitness += 0.05
             else:
                 player.genome.fitness -= 0.02
     if pipe_time == PIPE_DIST:
