@@ -8,7 +8,7 @@ FPS, GROUND_SPEED = 60, 7
 PLAYER_SIZE, GROUND_SIZE = 40, 100
 PLAYER_X, PLAYER_Y = 50, 200
 MAX_YSPEED = 15
-PIPE_WIDTH, PIPE_EDGE, GAP_HEIGHT, GAP_MIN, PIPE_DIST = 5, 0, 100, 75, 70
+PIPE_WIDTH, PIPE_EDGE, GAP_MAX, GAP_MIN, PIPE_DIST = 5, 0, 100, 80, 70
 PSEUDO_RANDOM = True
 HEIGHT_RAND_RANGE, DIST_RAND_RANGE = 1, 1
 HEIGHT_RANGE = (50, HEIGHT - GROUND_SIZE - 250)
@@ -27,10 +27,10 @@ c1, c2, c3 = 1, 1, 0.4
 MAX_WEIGHT, MAX_BIAS = 5, 5
 DELTA_THRESHOLD = 0.4
 DEL_NODE, ADD_NODE = 0.01, 0.01
-DEL_LINK, ADD_LINK = 0.05, 0.2
-MUTATE_PROB = 0.7
-ACTIVATION_MODE = 2
-ACTIVATION_THRESHOLD = [0, 0.5, 0.5, 0.5]
+DEL_LINK, ADD_LINK = 0.05, 0.15
+MUTATE_PROB = 0.6
+ACTIVATION_MODE = 1
+ACTIVATION_THRESHOLD = [0, 0.5, 0, 0.5]
 MAX_LAYER = 4
 
 pg.init()
@@ -194,11 +194,14 @@ class Genome:
     def add_node(self, link):
         global NODE_ID, INNOVATION
         link.enabled = False
-        new_node = Node(NODE_ID)
+        new_node = Node(NODE_ID, -2) if ACTIVATION_MODE == 1 else Node(NODE_ID, 0)
         self.nodes = np.append(self.nodes, new_node)
-        if ACTIVATION_MODE == 2:
-            self.links = np.append(self.links, [Link(link.in_id, NODE_ID, link.weight / MAX_BIAS, True, INNOVATION), 
-                                                Link(NODE_ID, link.out_id, MAX_BIAS, True, INNOVATION + 1)])
+        if ACTIVATION_MODE == 1:
+            self.links = np.append(self.links, [Link(link.in_id, NODE_ID, 4, True, INNOVATION), 
+                                                Link(NODE_ID, link.out_id, link.weight, True, INNOVATION + 1)])
+        elif ACTIVATION_MODE == 2:
+            self.links = np.append(self.links, [Link(link.in_id, NODE_ID, link.weight / MAX_WEIGHT, True, INNOVATION), 
+                                                Link(NODE_ID, link.out_id, MAX_WEIGHT, True, INNOVATION + 1)])
         INNOVATION += 2
         NODE_ID += 1
 
@@ -321,8 +324,6 @@ class Player:
     def __init__(self, genome=None):
         self.x = PLAYER_X
         self.y = PLAYER_Y
-        self.width = PLAYER_SIZE
-        self.height = PLAYER_SIZE
         self.yspeed = 0
         self.dead = False
         self.input = []
@@ -353,9 +354,9 @@ class Player:
         self.y += self.yspeed
         self.input = [(pipe.x - self.x - PLAYER_SIZE) / WIDTH,
                       #(pipe.y - self.y) / PLAYER_SIZE,
-                      #(pipe.y - self.y + pipe.height - self.height) / PLAYER_SIZE,
-                      (pipe.y - self.y + (pipe.height - self.height) / 2) / (PLAYER_SIZE*2),
-                      (HEIGHT - GROUND_SIZE - self.y) / HEIGHT, 
+                      #(pipe.y - self.y + pipe.height - PLAYER_SIZE) / PLAYER_SIZE,
+                      (pipe.y - self.y + (pipe.height - PLAYER_SIZE) / 2) / PLAYER_SIZE,
+                      (HEIGHT - GROUND_SIZE - self.y - PLAYER_SIZE) / HEIGHT, 
                       self.yspeed / MAX_YSPEED]
         if self.yspeed < MAX_YSPEED:
             self.yspeed += 0.5
@@ -368,8 +369,8 @@ class Player:
             self.y = 0
             self.yspeed = 0
             self.dead = True
-        if self.x + self.width > pipe.x and self.x < pipe.x + pipe.width:
-            if self.y < pipe.y or self.y + self.height > pipe.y + pipe.height:
+        if self.x + PLAYER_SIZE > pipe.x and self.x < pipe.x + pipe.width:
+            if self.y < pipe.y or self.y + PLAYER_SIZE > pipe.y + pipe.height:
                 self.dead = True
         if self.dead:
             death_time[gen-1][time] = death_time[gen-1].get(time, 0) + 1
@@ -377,8 +378,8 @@ class Player:
             self.genome.score += 0.01
         
     def draw(self):
-        pg.draw.rect(screen, WHITE, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
-        pg.draw.rect(screen, BLUE if self.dead else COLOR_LIST[self.genome.species], (self.x, self.y, self.width, self.height))
+        pg.draw.rect(screen, WHITE, (self.x - 2, self.y - 2, PLAYER_SIZE + 4, PLAYER_SIZE + 4))
+        pg.draw.rect(screen, BLUE if self.dead else COLOR_LIST[self.genome.species], (self.x, self.y, PLAYER_SIZE, PLAYER_SIZE))
         if EYES_OPEN:
             if self.dead:
                 pg.draw.line(screen, BLACK, (self.x + 15, self.y + 10), (self.x + 23, self.y + 18), 5)
@@ -397,7 +398,7 @@ class Pipe:
         self.x = x
         self.y = HEIGHT_RANGE[0] + 20
         self.width = PIPE_WIDTH
-        self.height = GAP_HEIGHT
+        self.height = GAP_MAX
         
     def move(self):
         self.x -= GROUND_SPEED
@@ -681,16 +682,13 @@ while run:
     if pipes[pipe_idx].x + PIPE_WIDTH < PLAYER_X:
         pipe_idx += 1
         for player in population:
-            if -1 < player.yspeed < 4:
-                if player.y > 400:
-                    player.genome.fitness += 0.1
-                else:
-                    player.genome.fitness += 0.02
+            if -1 < player.yspeed < 3:
+                player.genome.fitness += 0.05
             else:
-                player.genome.fitness -= 0.05
+                player.genome.fitness -= 0.02
     if pipe_time == PIPE_DIST:
         pipes.append(Pipe(WIDTH))
-        pipes[-1].height = max(pipes[-2].height - 0.5, GAP_MIN)
+        pipes[-1].height = GAP_MIN + (pipes[-2].height - GAP_MIN) * 0.95
         if PSEUDO_RANDOM:
             pipes[-1].y = pseudo_random(pipes[-2].y, HEIGHT_RANGE[0], HEIGHT_RANGE[1]) + np.random.randint(-HEIGHT_RAND_RANGE, HEIGHT_RAND_RANGE+1)
             pipe_time = np.random.randint(-DIST_RAND_RANGE, DIST_RAND_RANGE+1)
