@@ -194,10 +194,10 @@ class Genome:
     def add_node(self, link):
         global NODE_ID, INNOVATION
         link.enabled = False
-        new_node = Node(NODE_ID, -2) if ACTIVATION_MODE == 1 else Node(NODE_ID, 0)
+        new_node = Node(NODE_ID, 0)
         self.nodes = np.append(self.nodes, new_node)
         if ACTIVATION_MODE == 1:
-            self.links = np.append(self.links, [Link(link.in_id, NODE_ID, 4, True, INNOVATION), 
+            self.links = np.append(self.links, [Link(link.in_id, NODE_ID, 1, True, INNOVATION), 
                                                 Link(NODE_ID, link.out_id, link.weight, True, INNOVATION + 1)])
         elif ACTIVATION_MODE == 2:
             self.links = np.append(self.links, [Link(link.in_id, NODE_ID, link.weight / MAX_WEIGHT, True, INNOVATION), 
@@ -218,7 +218,7 @@ class Genome:
                 link.enabled = True
                 link.weight = 0
                 return
-        self.links = np.append(self.links, Link(in_node, out_node, np.random.uniform(-0.001, 0.001), True, INNOVATION))
+        self.links = np.append(self.links, Link(in_node, out_node, np.random.uniform(-0.1, 0.1), True, INNOVATION))
         INNOVATION += 1
 
     def delete_node(self):
@@ -473,7 +473,7 @@ def reproduce(population):
     population.sort(key=lambda x: x.genome.avg_fitness, reverse=True)
     species = speciate([player.genome for player in population])
     new_population = [population[i].genome for i in range(POPULATION//100)]
-    for i in range(len(species)//3+1):
+    for i in range(min(len(species)//4+1, 8)):
         n = 0
         if i <= 5:
             n = 50
@@ -482,8 +482,8 @@ def reproduce(population):
         elif i <= 15:
             n = 5
         s = species[i]
-        for _ in range(POPULATION//15+n):
-            j = min(int(abs(np.random.randn())*3), 10, len(s)-1)
+        for _ in range(POPULATION//20+n):
+            j = min(int(abs(np.random.randn())*2), 10, len(s)-1)
             child = s[j].clone()
             for _ in range(np.random.randint(5)+1):
                 child.mutate()
@@ -493,8 +493,8 @@ def reproduce(population):
                 new_population.append(child)
     for s in species:
         for i in range(min(len(s), 30)):
-            parent1 = np.random.choice(s[:min(len(s)//4+1, 10)])
-            parent2 = np.random.choice(s[:min(len(s)//4+1, 10)])
+            parent1 = np.random.choice(s[:min(len(s)//4+1, 5)])
+            parent2 = np.random.choice(s[:min(len(s)//4+1, 5)])
             child = parent1.crossover(parent2)
             if child.max_layer <= MAX_LAYER and max([len(l) for l in child.layer_dict.values()]) <= 5:
                 if parent1.avg_fitness > parent2.avg_fitness:
@@ -504,10 +504,8 @@ def reproduce(population):
                     child.avg_fitness = parent2.avg_fitness
                     child.avg_score = parent2.avg_score
                 new_population.append(child)
-    """
     for p in sorted(population, key=lambda x: x.genome.fitness, reverse=True):
         new_population.append(p.genome.clone())
-    """
     return [Player(genome) for genome in new_population[:POPULATION]]
 
 def draw_stats():
@@ -682,10 +680,10 @@ while run:
     if pipes[pipe_idx].x + PIPE_WIDTH < PLAYER_X:
         pipe_idx += 1
         for player in population:
-            if -1 < player.yspeed < 3:
+            if -2 < player.yspeed < 4:
                 player.genome.fitness += 0.05
             else:
-                player.genome.fitness -= 0.02
+                player.genome.fitness -= 0.1
     if pipe_time == PIPE_DIST:
         pipes.append(Pipe(WIDTH))
         pipes[-1].height = GAP_MIN + (pipes[-2].height - GAP_MIN) * 0.95
