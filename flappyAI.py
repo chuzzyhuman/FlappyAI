@@ -247,7 +247,6 @@ class Genome:
 
     def mutate_link(self):
         r = np.random.rand()
-        len_links = len([link for link in self.links if link.enabled])
         if r < DEL_LINK and len(self.links) > 0:
             self.delete_link()
         elif r < DEL_NODE + ADD_LINK:
