@@ -447,7 +447,7 @@ def speciate(population):
                 s.append(genome)
                 break
         else:
-            if len(species) < 60:
+            if len(species) < 50:
                 species.append([genome])
             else:
                 species.sort(key=lambda x: max([g.avg_fitness for g in x]), reverse=True)
