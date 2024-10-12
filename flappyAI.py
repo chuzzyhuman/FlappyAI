@@ -421,6 +421,8 @@ def read_genome(file):
     return genome
 
 def push_innov():
+    global NODE_ID, INNOVATION
+
     node_ids = np.sort(np.unique(np.array([node.id for player in population for node in player.genome.nodes])))
     link_innovs = np.sort(np.unique(np.array([link.innov for player in population for link in player.genome.links])))
     node_id_map = {node_ids[i]: i for i in range(len(node_ids))}
