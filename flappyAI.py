@@ -13,7 +13,7 @@ PSEUDO_RANDOM = True
 HEIGHT_RAND_RANGE, DIST_RAND_RANGE = 1, 1
 HEIGHT_RANGE = (50, HEIGHT - GROUND_SIZE - 250)
 EYES_OPEN = False
-SHOW_TEXT, GRAPH_LOG, GRAPH_NUM = True, False, 0
+SHOW_TEXT, GRAPH_LOG, GRAPH_NUM = True, True, 0
 SAVE_MODE = False
 
 BLACK, WHITE, RED, GREEN, BLUE = (0, 0, 0), (255, 255, 255), (255, 0, 0), (0, 255, 0), (0, 0, 255)
@@ -724,6 +724,7 @@ while run:
         best_fitness.append(max(player.genome.fitness for player in dead_population))
         best_avg_fitness.append(max(player.genome.avg_fitness for player in dead_population))
         population = reproduce(dead_population)
+        population.sort(key=lambda x: x.genome.fitness)
         dead_population = []
         
         push_innov()
