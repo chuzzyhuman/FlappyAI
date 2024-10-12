@@ -364,7 +364,7 @@ class Player:
             if self.y < pipe.y or self.y + PLAYER_SIZE > pipe.y + pipe.height:
                 self.dead = True
         if self.dead:
-            death_time[gen-1][time] = death_time[gen-1].get(time, 0) + 1
+            death_score[gen-1][score] = death_score[gen-1].get(score, 0) + 1
         else:
             self.genome.score += 0.01
         
@@ -506,7 +506,7 @@ def draw_stats():
     screen.blit(text, (WIDTH - 55, 10))
     text = font.render(f"Generation: {gen}", True, WHITE)
     screen.blit(text, (WIDTH + 20, 10))
-    text = font.render(f"Score: {(time/100):.2f}", True, WHITE)
+    text = font.render(f"Score: {(score/100):.2f}", True, WHITE if max(best_score + best_avg_score) >= score/100 else GREEN)
     screen.blit(text, (WIDTH + 20, 40))
     text = font.render(f"Alive: {len(population)}", True, WHITE)
     screen.blit(text, (WIDTH + 20, 70))
@@ -531,7 +531,7 @@ def draw_stats():
                 if link.in_id == node and link.enabled:
                     pos1 = (WIDTH + w + i*g1, h + best.layer_dict[i].index(node)*g2)
                     pos2 = (WIDTH + w + best.layer[best.id_to_index[link.out_id]]*g1, h + best.layer_dict[best.layer[best.id_to_index[link.out_id]]].index(link.out_id)*g2)
-                    pg.draw.line(screen, RED if link.weight > 0 else BLUE, pos1, pos2, abs(int(link.weight)) + 2)
+                    pg.draw.line(screen, RED if link.weight > 0 else BLUE if link.weight < 0 else (50, 50, 50), pos1, pos2, abs(int(link.weight)) + 2)
         for node in best.layer_dict[i]:
             b = int(255 * (best.value[best.id_to_index[node]] - min_value) / (max_value - min_value))
             b = max(0, min(255, b))
@@ -562,14 +562,14 @@ def draw_stats():
     elif GRAPH_NUM == 2:
         for i in range(max(0, gen - len(COLOR_LIST) + 101), gen):
             max_score = 0
-            if len(death_time[i]) > 0:
-                max_score = max(death_time[i])
+            if len(death_score[i]) > 0:
+                max_score = max(death_score[i])
             if i == gen - 1:
-                max_score = max(max_score, time)
+                max_score = max(max_score, score)
             color = COLOR_LIST[min(gen - i - 1, len(COLOR_LIST)-1)]
             total = 0
             prev_point = (WIDTH + 20, top)
-            for k, v in death_time[i].items():
+            for k, v in death_score[i].items():
                 total += v
                 pg.draw.line(screen, color, prev_point, (WIDTH + 20 + (k-1)*(SCREEN_WIDTH-WIDTH-40)/max_score, prev_point[1]), 5)
                 pg.draw.line(screen, color, (WIDTH + 20 + (k-1)*(SCREEN_WIDTH-WIDTH-40)/max_score, prev_point[1]), (WIDTH + 20 + k*(SCREEN_WIDTH-WIDTH-40)/max_score, bottom - log(POPULATION - total, GRAPH_LOG)*(bottom - top)/log(POPULATION, GRAPH_LOG)), 5)
@@ -597,13 +597,13 @@ dead_population = []
 pipes = [Pipe(WIDTH)]
 pipe_idx = 0
 
-time, pipe_time, gen, run, pause, speed_idx = 0, 0, 1, True, False, 2
+score, pipe_time, gen, run, pause, speed_idx = 0, 0, 1, True, False, 2
 speed = [0.1, 1, 100]
 best_score = [0]
 best_avg_score = [0]
 best_fitness = [0]
 best_avg_fitness = [0]
-death_time = [{} for _ in range(10000)]
+death_score = [{} for _ in range(10000)]
 
 """
 g1 = Genome()
@@ -648,7 +648,7 @@ while run:
         pg.display.update()
         continue
     
-    time += 1
+    score += 1
     pipe_time += 1
     
     screen.fill(BLACK)
@@ -713,7 +713,7 @@ while run:
                     f.write(f"{node.id} {node.bias} {node.activation}\n")
                 for link in best.links:
                     f.write(f"{link.in_id} {link.out_id} {link.weight} {link.enabled} {link.innov}\n")
-        time = 0
+        score = 0
         pipe_time = 0
         gen += 1
         for player in dead_population:
