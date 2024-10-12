@@ -534,8 +534,7 @@ def draw_stats():
             b = int(255 * (best.value[best.id_to_index[node]] - min_value) / (max_value - min_value))
             b = max(0, min(255, b))
             pg.draw.circle(screen, (b, b, b) if best.nodes[best.id_to_index[node]].bias == 0 else ((b, 0, 0) if best.nodes[best.id_to_index[node]].bias > 0 else (0, 0, b)), (WIDTH + w + i*g1, h + best.layer_dict[i].index(node)*g2), 20)
-            a = best.nodes[best.id_to_index[node]].activation
-            pg.draw.circle(screen, WHITE if a == 0 else GREEN, (WIDTH + w + i*g1, h + best.layer_dict[i].index(node)*g2), 20, 3)
+            pg.draw.circle(screen, WHITE if best.nodes[best.id_to_index[node]].activation == 0 else GREEN, (WIDTH + w + i*g1, h + best.layer_dict[i].index(node)*g2), 20, 3)
             if SHOW_TEXT:
                 text = font.render(str(node), True, WHITE)
                 screen.blit(text, (WIDTH + w + i*g1 - 4.7 - 5.2*int(np.log10(node if node != 0 else 1)), h + best.layer_dict[i].index(node)*g2 - 12))
