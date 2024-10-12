@@ -26,7 +26,7 @@ POPULATION = 10000
 c1, c2, c3 = 1, 1, 0.4
 MAX_WEIGHT, MAX_BIAS = 5, 5
 DELTA_THRESHOLD = 0.4
-DEL_NODE, ADD_NODE = 0.01, 0.01
+DEL_NODE, ADD_NODE = 0.01, 0.05
 DEL_LINK, ADD_LINK = 0.05, 0.2
 MUTATE_PROB = 0.7
 ACTIVATION_MODE = 2
@@ -202,7 +202,7 @@ class Genome:
                 link.enabled = True
                 link.weight = 0
                 return
-        self.links = np.append(self.links, Link(in_node, out_node, np.random.uniform(-0.01, 0.01), True, INNOVATION))
+        self.links = np.append(self.links, Link(in_node, out_node, 0, True, INNOVATION))
         INNOVATION += 1
 
     def delete_node(self):
