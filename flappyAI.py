@@ -412,8 +412,8 @@ def read_genome(file):
     genome = Genome()
     with open(file, "r") as f:
         for i in range(INPUTS + OUTPUTS):
-            id, bias = map(float, f.readline().split())
-            genome.nodes[i] = Node(id, bias)
+            id, bias, activation = map(float, f.readline().split())
+            genome.nodes[i] = Node(id, bias, activation)
         for line in f:
             in_id, out_id, weight, enabled, innov = map(float, line.split())
             genome.links = np.append(genome.links, Link(in_id, out_id, weight, enabled, innov))
