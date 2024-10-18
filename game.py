@@ -1,6 +1,5 @@
 import pygame as pg
 import numpy as np
-import matplotlib.pyplot as plt
 
 WIDTH, HEIGHT = 600, 600
 FPS, GROUND_SPEED = 60, 7
