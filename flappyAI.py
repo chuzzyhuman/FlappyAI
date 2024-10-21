@@ -599,7 +599,7 @@ pipes = [Pipe(WIDTH)]
 pipe_idx = 0
 
 score, pipe_time, gen, run, pause, speed_idx = 0, 0, 1, True, False, 2
-speed = [0.1, 1, 100]
+speed = [0.1, 1, 40]
 best_score = [0]
 best_avg_score = [0]
 best_fitness = [0]
@@ -734,5 +734,5 @@ while run:
         pipes = [Pipe(WIDTH)]
         pipe_idx = 0
 
-    if speed[speed_idx] != 100:
+    if speed[speed_idx] != 40:
         clock.tick(FPS * speed[speed_idx])
